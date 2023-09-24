@@ -7,6 +7,16 @@ const generateToken = (user) => {
 };
 
 const authenticate = async (req, res, next) => {
+  if(req.header('token'))
+  {
+    token = req.header('token');
+    const decodedToken = jwt.verify(token, 'your_secret_key');
+    let user = await User.findOne({ where: { id:decodedToken.id } });
+    req.user = { ...user.dataValues, userid:user.id };
+    console.log("user is logged in")
+    next();
+  }
+  else {
   const { email, password } = req.body;
 
   try {
@@ -15,7 +25,7 @@ const authenticate = async (req, res, next) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compareSync(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -29,12 +39,12 @@ const authenticate = async (req, res, next) => {
     } else if (admin) {
       role = 'admin';
     }
-
-    req.user = { ...user.dataValues, role };
+    const u = await User.findOne({where: {email}});
     next();
   } catch (error) {
     return res.status(500).json({ message: 'Server error' });
   }
+}
 };
 const signup = async (req, res) => {
     const { email, password, role } = req.body;
