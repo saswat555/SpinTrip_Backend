@@ -6,9 +6,10 @@ const { User, Car } = require('../Models');
 
 const router = express.Router();
 
-router.post('/login', authenticate, (req, res) => {
-    const { user } = req;
-    const token = generateToken(user.id);
+router.post('/login', authenticate, async (req, res) => {
+  const { email} = req.body;
+  const user = await User.findOne({ where: { email } });
+    const token = generateToken(user);
     return res.json({ user, token });
   });
 router.get('/profile', (req, res) => {

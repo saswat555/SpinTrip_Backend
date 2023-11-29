@@ -12,6 +12,7 @@ const authenticate = async (req, res, next) => {
     token = req.header('token');
     const decodedToken = jwt.verify(token, 'your_secret_key');
     let user = await User.findOne({ where: { id:decodedToken.id } });
+    console.log(user)
     req.user = { ...user.dataValues, userid:user.id };
     console.log("user is logged in")
     next();
