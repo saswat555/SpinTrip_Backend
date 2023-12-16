@@ -17,17 +17,17 @@ const authenticate = async (req, res, next) => {
     next();
   }
   else {
-  const { email, password } = req.body;
+  const { phone, password } = req.body;
 
   try {
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ where: { phone } });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid phone or password' });
     }
 
     const isPasswordValid = await bcrypt.compareSync(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid phone or password' });
     }
 
     const host = await Host.findOne({ where: { id: user.id } });
@@ -39,7 +39,7 @@ const authenticate = async (req, res, next) => {
     } else if (admin) {
       role = 'admin';
     }
-    const u = await User.findOne({where: {email}});
+    const u = await User.findOne({where: {phone}});
     next();
   } catch (error) {
     return res.status(500).json({ message: 'Server error' });
@@ -47,18 +47,18 @@ const authenticate = async (req, res, next) => {
 }
 };
 const signup = async (req, res) => {
-    const { email, password, role } = req.body;
+    const { phone, password, role } = req.body;
   
     try {
       // Input validation
-      if (!email || !password || !role) {
-        return res.status(400).json({ message: 'Email, password, and role are required' });
+      if (!phone || !password || !role) {
+        return res.status(400).json({ message: 'phone, password, and role are required' });
       }
   
-      // Check for existing user with the same email
-      const existingUser = await User.findOne({ where: { email } });
+      // Check for existing user with the same phone
+      const existingUser = await User.findOne({ where: { phone } });
       if (existingUser) {
-        return res.status(400).json({ message: 'User with this email already exists' });
+        return res.status(400).json({ message: 'User with this phone already exists' });
       }
   
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -68,21 +68,21 @@ const signup = async (req, res) => {
       switch (role) {
         case 'user':
           user = await User.create({
-            email,
+            phone,
             password: hashedPassword,
             // Add other user properties here
           });
           break;
         case 'host':
           user = await Host.create({
-            email,
+            phone,
             password: hashedPassword,
             // Add other host properties here
           });
           break;
         case 'admin':
           user = await Admin.create({
-            email,
+            phone,
             password: hashedPassword,
             // Add other admin properties here
           });

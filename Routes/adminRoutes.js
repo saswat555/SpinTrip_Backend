@@ -16,8 +16,8 @@ const authAdmin = async (userId) => {
   };
   
   router.post('/login', authenticate, async (req, res) => {
-    const { email } = req.body;
-    const user = await User.findOne({ where: { email } });
+    const { phone } = req.body;
+    const user = await User.findOne({ where: { phone } });
     const token = jwt.sign({ id: user.id, role: 'admin' }, 'your_secret_key');
     return res.json({ user, token });
   });
@@ -25,10 +25,10 @@ const authAdmin = async (userId) => {
   
 // Admin Signup
 router.post('/signup', async (req, res) => {
-    const { email, password, SecurityQuestion } = req.body;
+    const { phone, password, SecurityQuestion } = req.body;
   
     try {
-      const user = await User.findOne({ where: { email } });
+      const user = await User.findOne({ where: { phone } });
   
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
@@ -62,7 +62,7 @@ router.get('/profile', authenticate, async (req, res) => {
     }
     const additionalinfo = await UserAdditional.findByPk(adminId)
 
-    res.json({ email: admin.email, securityQuestion: admin.SecurityQuestion, additionalinfo });
+    res.json({ phone: admin.phone, securityQuestion: admin.SecurityQuestion, additionalinfo });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error });

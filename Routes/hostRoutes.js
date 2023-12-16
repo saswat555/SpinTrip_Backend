@@ -8,18 +8,18 @@ const router = express.Router();
 
 // Host Login
 router.post('/login',authenticate, async (req, res) => {
-  const { email, password } = req.body;
+  const { phone, password } = req.body;
 
   try {
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ where: { phone } });
     const host = await Host.findOne({where: { id:user.id }});
 
     if (!host) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid phone or password' });
     }
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid phone or password' });
     }
 
     const token = jwt.sign({ id: user.id, role: 'host' }, 'your_secret_key');
@@ -32,14 +32,14 @@ router.post('/login',authenticate, async (req, res) => {
 
 // Host Signup
 router.post('/signup', async (req, res) => {
-  var email = req.body.email;
+  var phone = req.body.phone;
   var password = req.body.password;
   try {
     const bcrypt = require("bcrypt");
     const salt = bcrypt.genSaltSync(10);
     // const hashedPassword = bcrypt.hashSync("my-password", salt);
     const hashedPassword =  await bcrypt.hash(password,salt);
-    const user = await User.create({ email, password: hashedPassword });
+    const user = await User.create({ phone, password: hashedPassword });
     const host = await Host.create({
       id:user.id,
       carid:null
