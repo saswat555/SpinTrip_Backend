@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { Host, Car, User, Listing } = require('../Models');
+const { Host, Car, User, Listing, UserAdditional} = require('../Models');
 
 const router = express.Router();
 
@@ -52,25 +52,27 @@ router.post('/signup', async (req, res) => {
     res.status(500).json({ message: 'Error creating host' });
   }
 });
-
 // Host Profile
 router.get('/profile', authenticate, async (req, res) => {
   try {
     const hostId = req.user.id;
-    const host = await Host.findByPk(hostId, {
-      include: [{ model: Car }],
-    });
+    const host = await Host.findByPk(hostId);
 
     if (!host) {
       return res.status(404).json({ message: 'Host not found' });
     }
-
-    res.json({ host });
+    
+    const cars = await Car.findAll({where:{carhostid : host.id}})
+    const additionalinfo = await UserAdditional.findByPk(hostId)
+    // You can include more fields as per your User model
+    res.json({ hostDetails: host, cars, additionalinfo });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
 // Add Car
 router.post('/car', async (req, res) => {
   const { carmodel, 
@@ -106,14 +108,6 @@ router.post('/car', async (req, res) => {
       details:"Null"
     })
     res.status(201).json({ message: 'Car and listing added successfully for the host', car, listing });
-  
-    //const isPasswordValid = await bcrypt.compare(password, host.password);
-    // if (!isPasswordValid) {
-    //   return res.status(401).json({ message: 'Invalid email or password' });
-    // }
-
-    // const token = jwt.sign({ id: host.id, role: 'host' }, 'your_secret_key');
-    // res.json({ message: 'Host logged in', host, token });
 
   } catch (error) {
     console.error(error);

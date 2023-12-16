@@ -45,6 +45,7 @@ const associateModels = () => {
   User.hasMany(Booking);
   Listing.hasOne(Car, {foreignKey: 'carid' });
   Listing.hasOne(Host, {foreignKey: 'id', sourcekey: 'hostid'})
+  Host.hasMany(Car, {foreignKey: 'carhostid',sourceKey: 'id'})
  // Assuming Car model is imported and defined
 };
 associateModels();

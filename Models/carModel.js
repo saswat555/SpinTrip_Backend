@@ -6,12 +6,16 @@ module.exports = (sequelize, DataTypes) => {
     Enginenumber: DataTypes.STRING,
     Registrationyear: DataTypes.DATEONLY,
     bodytype: DataTypes.STRING,
-    carid: { type: DataTypes.INTEGER, primaryKey:true, autoIncrement:true},
-    carhostid: DataTypes.INTEGER,
+    carid: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     timestamp: DataTypes.DATE,
-  });
-
-
+    hostId: {
+      type: DataTypes.INTEGER,
+      references: {
+        model: 'Hosts', // This should match the table name for Hosts
+        key: 'id'
+      }
+    }
+  })
 
   return Car;
 };

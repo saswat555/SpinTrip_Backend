@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin } = require('../Models');
+const { User, Admin, UserAdditional } = require('../Models');
 
 const router = express.Router();
 const authAdmin = async (userId) => {
@@ -15,39 +15,13 @@ const authAdmin = async (userId) => {
     }
   };
   
-  router.post('/login', async (req, res, next) => {
-    const { email, password } = req.body;
-    
-    try {
-      const user = await User.findOne({ where: { email } });
-    
-      if (!user) {
-        return res.status(401).json({ message: 'Invalid email or password' });
-      }
-    
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ message: 'Invalid email or password' });
-      }
-    
-      // Authenticate the user
-      req.user = user; // Attach the user to the request
-  
-      // Check if the authenticated user is an admin
-      const isAdmin = await authAdmin(req.user.id);
-      if (!isAdmin) {
-        return res.status(403).json({ message: 'User is not an admin' });
-      }
-      console.log("lund")
-      next(); // Move to the next middleware
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server error' });
-    }
+  router.post('/login', authenticate, async (req, res) => {
+    const { email } = req.body;
+    const user = await User.findOne({ where: { email } });
+    const token = jwt.sign({ id: user.id, role: 'admin' }, 'your_secret_key');
+    return res.json({ user, token });
   });
   
-  // Other routes that require admin authentication
-
   
 // Admin Signup
 router.post('/signup', async (req, res) => {
@@ -86,12 +60,14 @@ router.get('/profile', authenticate, async (req, res) => {
     if (!admin) {
       return res.status(404).json({ message: 'Admin not found' });
     }
+    const additionalinfo = await UserAdditional.findByPk(adminId)
 
-    res.json({ admin });
+    res.json({ email: admin.email, securityQuestion: admin.SecurityQuestion, additionalinfo });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: error });
   }
 });
+
 
 module.exports = router;

@@ -1,4 +1,4 @@
-export default (sequelize, DataTypes) => {
+module.exports = (sequelize, DataTypes) => {
   const Admin = sequelize.define("Admin", {
     id: { type: DataTypes.INTEGER, primaryKey: true },
     SecurityQuestion: DataTypes.STRING(50),
