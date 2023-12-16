@@ -2,7 +2,7 @@
 const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional, Listing} = require('../Models');
+const { User, Car, UserAdditional, Listing, sequelize} = require('../Models');
 const { Op } = require('sequelize');
 
 const router = express.Router();
@@ -109,47 +109,55 @@ router.get('/cars', async (req, res) => {
 })
 
 router.post('/findcars', async (req, res) => {
-  const { startDate, startTime, endDate, endTime } = req.body;
+  const { startDate, endDate } = req.body;
 
   try {
-      // Construct start and end DateTime objects
-      const searchStartDateTime = new Date(`${startDate} ${startTime}`);
-      const searchEndDateTime = new Date(`${endDate} ${endTime}`);
-
-      // Find listings that are available during the requested period
-      const availableListings = await Listing.findAll({
-          where: {
-              [Op.or]: [
-                  // Case where listing starts before and ends after the search period
-                  {
-                      start_date: { [Op.lte]: startDate },
-                      end_date: { [Op.gte]: endDate }
-                  },
-                  // Case where listing starts and ends within the search period
-                  {
-                      start_date: { [Op.gte]: startDate },
-                      end_date: { [Op.lte]: endDate }
-                  }
-                  // Additional cases can be added for more complex scenarios
-              ]
-          },
-          include: [
+    const availableListings = await Listing.findAll({
+      where: {
+        [Op.and]: [
+          {
+            [Op.or]: [
+              // Check if pausetime_start_date is after user's end_date or is null (not paused)
               {
-                  model: Car,
-                  required: true // Only include listings with an associated car
-              }
-          ]
-      });
+                [Op.or]: [
+                  { pausetime_start_date: { [Op.gt]: endDate } },
+                  { pausetime_start_date: null },
+                ],
+              },
+              // Check if pausetime_end_date is before user's start_date or is null (not paused)
+              {
+                [Op.or]: [
+                  { pausetime_end_date: { [Op.lt]: startDate } },
+                  { pausetime_end_date: null },
+                ],
+              },
+            ],
+          },
+          {
+            // Check if start_date is before or equal to user's end_date
+            [Op.or]: [
+              { start_date: { [Op.lte]: endDate } },
+              { start_date: null },
+            ],
+            // Check if end_date is after or equal to user's start_date
+            [Op.or]: [
+              { end_date: { [Op.gte]: startDate } },
+              { end_date: null },
+            ],
+          },
+        ],
+      },
+      include: [Car], // Include associated car details
+    });
 
-      // Extract car information from the listings
-      const availableCars = availableListings.map(listing => listing.Car);
+    // Extract car information from the listings
+    const availableCars = availableListings.map((listing) => listing.Car);
 
-      // Respond with the available cars
-      res.status(200).json({ availableCars });
+    // Respond with the available cars
+    res.status(200).json({ availableCars });
   } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error finding available cars' });
+    console.error(error);
+    res.status(500).json({ message: 'Error finding available cars' });
   }
 });
-
 module.exports = router;
