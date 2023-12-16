@@ -3,7 +3,6 @@ module.exports = (sequelize, DataTypes) => {
       addid: { type: DataTypes.INTEGER, primaryKey: true },
       Airbags: DataTypes.BOOLEAN,
       SpareTyre: DataTypes.BOOLEAN,
-      // ... other fields ...
       Additionalinfo: DataTypes.TEXT,
       timestamp: DataTypes.DATE,
     });
