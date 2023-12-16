@@ -12,7 +12,7 @@ router.post('/login',authenticate, async (req, res) => {
 
   try {
     const user = await User.findOne({ where: { phone } });
-    const host = await Host.findOne({where: { id:user.id }});
+    const host = await Host.findOne({where: { id: user.id }});
 
     if (!host) {
       return res.status(401).json({ message: 'Invalid phone or password' });
@@ -21,6 +21,7 @@ router.post('/login',authenticate, async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid phone or password' });
     }
+    console.log(user)
 
     const token = jwt.sign({ id: user.id, role: 'host' }, 'your_secret_key');
     res.json({ message: 'Host logged in', host, token });
@@ -81,7 +82,6 @@ router.post('/car', async (req, res) => {
     Enginenumber,
     Registrationyear,
     bodytype,
-    carid,
     carhostid,
     timestamp } = req.body;
     
@@ -98,12 +98,11 @@ router.post('/car', async (req, res) => {
     Enginenumber,
     Registrationyear,
     bodytype,
-    carid,
     carhostid,
     timestamp 
     })
     const listing = await Listing.create({
-      carid:carid,
+      carid:car.carid,
       hostid:carhostid,
       details:"Null"
     })

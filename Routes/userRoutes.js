@@ -2,7 +2,8 @@
 const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional } = require('../Models');
+const { User, Car, UserAdditional, Listing} = require('../Models');
+const { Op } = require('sequelize');
 
 const router = express.Router();
 const generateOTP = () => {
@@ -107,5 +108,48 @@ router.get('/cars', async (req, res) => {
   res.status(200).json({ "message": "All available cars", cars })
 })
 
+router.post('/findcars', async (req, res) => {
+  const { startDate, startTime, endDate, endTime } = req.body;
+
+  try {
+      // Construct start and end DateTime objects
+      const searchStartDateTime = new Date(`${startDate} ${startTime}`);
+      const searchEndDateTime = new Date(`${endDate} ${endTime}`);
+
+      // Find listings that are available during the requested period
+      const availableListings = await Listing.findAll({
+          where: {
+              [Op.or]: [
+                  // Case where listing starts before and ends after the search period
+                  {
+                      start_date: { [Op.lte]: startDate },
+                      end_date: { [Op.gte]: endDate }
+                  },
+                  // Case where listing starts and ends within the search period
+                  {
+                      start_date: { [Op.gte]: startDate },
+                      end_date: { [Op.lte]: endDate }
+                  }
+                  // Additional cases can be added for more complex scenarios
+              ]
+          },
+          include: [
+              {
+                  model: Car,
+                  required: true // Only include listings with an associated car
+              }
+          ]
+      });
+
+      // Extract car information from the listings
+      const availableCars = availableListings.map(listing => listing.Car);
+
+      // Respond with the available cars
+      res.status(200).json({ availableCars });
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error finding available cars' });
+  }
+});
 
 module.exports = router;
