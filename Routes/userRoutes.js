@@ -59,11 +59,38 @@ router.get('/profile', authenticate, async (req, res) => {
     const additionalinfo = await UserAdditional.findByPk(userId)
     // You can include more fields as per your User model
     res.json({ phone: user.phone, role: user.id , additionalinfo: additionalinfo});
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+router.put('/profile',authenticate, async (req,res)=>{
+try{
+  const userId = req.user.id;
+  const user = await User.findByPk(userId);
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+  const additionalinfo = await UserAdditional.findByPk(userId);
+  const {id , DlVerification, FullName , AadharVfid,Address,CurrentAddressVfid,ml_data } = req.body;
+  await additionalinfo.update({
+    id:id,
+    DlVerification:DlVerification,
+    FullName:FullName,
+    AadharVfid:AadharVfid,
+    Address:Address,
+    CurrentAddressVfid:CurrentAddressVfid,
+    ml_data:ml_data
+  })
+  res.status(200).json({message: 'Profile Updated successfully', updatedProfile: UserAdditional})
+}
+catch(error){
+  console.log(error);
+  res.status(500).json({message: 'Error updating profile', error : error})
+}
+})
 
 router.post('/signup', async (req, res) => {
   const { phone, password, role } = req.body;
@@ -79,10 +106,9 @@ router.post('/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     let user;
-
     // Create user based on the role
     if (role === 'user') {
-      user = await User.create({ phone, password: hashedPassword });
+      user = await User.create({ phone, password: hashedPassword  });
     } else if (role === 'host') {
       user = await Host.create({ phone, password: hashedPassword });
     } else if (role === 'admin') {
@@ -91,12 +117,8 @@ router.post('/signup', async (req, res) => {
 
 
     UserAdditional.create({id:user.id});
-
-    // Generate JWT token
-    const token = generateToken(user.id);
-
     // Respond with success message
-    res.status(201).json({ message: 'User created', user, token });
+    res.status(201).json({ message: 'User created', user });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error creating user' });

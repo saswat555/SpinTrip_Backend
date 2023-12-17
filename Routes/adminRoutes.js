@@ -22,7 +22,7 @@ const authAdmin = async (userId) => {
     return res.json({ user, token });
   });
   
-  
+
 // Admin Signup
 router.post('/signup', async (req, res) => {
     const { phone, password, SecurityQuestion } = req.body;
@@ -42,6 +42,7 @@ router.post('/signup', async (req, res) => {
         SecurityQuestion,
         timestamp: new Date(), // Set the current timestamp
         password: hashedPassword,
+        UserId: user.id
       });
   
       res.status(201).json({ message: 'Admin created', admin });

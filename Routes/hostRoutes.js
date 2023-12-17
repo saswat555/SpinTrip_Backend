@@ -9,7 +9,6 @@ const router = express.Router();
 // Host Login
 router.post('/login',authenticate, async (req, res) => {
   const { phone, password } = req.body;
-
   try {
     const user = await User.findOne({ where: { phone } });
     const host = await Host.findOne({where: { id: user.id }});
@@ -46,8 +45,7 @@ router.post('/signup', async (req, res) => {
       carid:null
     });
 
-    const token = jwt.sign({ id: host.id, role: 'host' }, 'your_secret_key');
-    res.status(201).json({ message: 'Host created', host, token });
+    res.status(201).json({ message: 'Host created', host});
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error creating host' });
