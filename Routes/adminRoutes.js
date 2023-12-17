@@ -5,6 +5,13 @@ const { authenticate } = require('../Middleware/authMiddleware');
 const { User, Admin, UserAdditional } = require('../Models');
 
 const router = express.Router();
+const generateOTP = () => {
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  return otp;
+};
+const sendOTP = (phone, otp) => {
+  console.log(`Sending OTP ${otp} to phone number ${phone}`);
+};
 const authAdmin = async (userId) => {
     try {
       const admin = await Admin.findOne({ where: { id: userId } });
@@ -15,13 +22,30 @@ const authAdmin = async (userId) => {
     }
   };
   
-  router.post('/login', authenticate, async (req, res) => {
+  router.post('/login', async (req, res) => {
     const { phone } = req.body;
     const user = await User.findOne({ where: { phone } });
-    const token = jwt.sign({ id: user.id, role: 'admin' }, 'your_secret_key');
-    return res.json({ user, token });
+    const admin = await Admin.findOne({ where: { id: user.id } });
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid phone number' });
+    }
+    const otp = generateOTP();
+    sendOTP(phone, otp);
+    await user.update({otp:otp})    
+    return res.json({ message: 'OTP sent successfully', redirectTo: '/verify-otp', phone, otp });
   });
-  
+  router.post('/verify-otp', async (req, res) => {
+    const { phone, otp } = req.body;
+    const user = await User.findOne({ where: { phone } })
+    const fixed_otp = user.otp;
+    if (fixed_otp === otp) {
+      const user = await User.findOne({ where: { phone } });
+      const token = jwt.sign({ id: user.id, role: 'admin' }, 'your_secret_key');
+      return res.json({ message: 'OTP verified successfully', user, token });
+    } else {
+      return res.status(401).json({ message: 'Invalid OTP' });
+    }
+  });
 
 // Admin Signup
 router.post('/signup', async (req, res) => {

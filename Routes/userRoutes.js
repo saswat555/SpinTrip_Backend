@@ -2,7 +2,7 @@
 const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional, Listing, sequelize} = require('../Models');
+const { User, Car, UserAdditional, Listing, sequelize, Booking} = require('../Models');
 const { Op } = require('sequelize');
 
 const router = express.Router();
@@ -167,6 +167,9 @@ router.post('/findcars', async (req, res) => {
               { end_date: null },
             ],
           },
+          {
+            bookingId: { [Op.eq]: null },
+          },
         ],
       },
       include: [Car], // Include associated car details
@@ -180,6 +183,71 @@ router.post('/findcars', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error finding available cars' });
+  }
+});
+
+router.post('/booking', authenticate, async (req, res) => {
+  try {
+    const { carid, startDate, endDate } = req.body;
+    const userId = req.user.id;
+    const isCarAvailable = await Listing.findOne({
+      where: {
+        carid: carid,
+        [Op.and]: [
+          {
+            [Op.or]: [
+              { pausetime_start_date: { [Op.gt]: endDate } },
+              { pausetime_start_date: null },
+            ],
+          },
+          {
+            [Op.or]: [
+              { pausetime_end_date: { [Op.lt]: startDate } },
+              { pausetime_end_date: null },
+            ],
+          },
+          {
+            [Op.or]: [
+              { start_date: { [Op.lte]: endDate } },
+              { start_date: null },
+            ],
+            [Op.or]: [
+              { end_date: { [Op.gte]: startDate } },
+              { end_date: null },
+            ],
+          },
+          {
+            bookingId: { [Op.eq]: null },
+          }
+        ],
+      },
+    });
+    if (!isCarAvailable) {
+      return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
+    }
+    try {
+      let booking = await Booking.create({
+        carid: carid,
+        startTripDate: startDate,
+        endTripDate: endDate,
+        id: userId,
+      });
+
+      console.log(booking);
+      await Listing.update(
+        { bookingId: booking.Bookingid},
+        { where: { carid: carid }}
+      );
+
+
+      res.status(201).json({ message: 'Booking successful', booking });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error processing booking' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 module.exports = router;
