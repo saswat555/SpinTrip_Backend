@@ -132,7 +132,6 @@ router.get('/cars', async (req, res) => {
 
 router.post('/findcars', async (req, res) => {
   const { startDate, endDate } = req.body;
-
   try {
     const availableListings = await Listing.findAll({
       where: {
@@ -156,19 +155,21 @@ router.post('/findcars', async (req, res) => {
             ],
           },
           {
-            // Check if start_date is before or equal to user's end_date
+            // Check if start_date is before or equal to user's end_date 
             [Op.or]: [
-              { start_date: { [Op.lte]: endDate } },
+              { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
               { start_date: null },
             ],
             // Check if end_date is after or equal to user's start_date
+          },
+          {
             [Op.or]: [
-              { end_date: { [Op.gte]: startDate } },
+              { end_date: { [Op.gte]: endDate } },                        //Code changed Pratyay
               { end_date: null },
             ],
           },
           {
-            bookingId: { [Op.eq]: null },
+            bookingId: { [Op.eq]: null },                                 //Code changed Pratyay
           },
         ],
       },
@@ -196,23 +197,29 @@ router.post('/booking', authenticate, async (req, res) => {
         [Op.and]: [
           {
             [Op.or]: [
-              { pausetime_start_date: { [Op.gt]: endDate } },
-              { pausetime_start_date: null },
+              {
+                [Op.or]: [
+                  { pausetime_start_date: { [Op.gt]: endDate } },
+                  { pausetime_start_date: null },
+                ],
+              },
+              {
+                [Op.or]: [
+                  { pausetime_end_date: { [Op.lt]: startDate } },
+                  { pausetime_end_date: null },
+                ],
+              },
             ],
           },
           {
             [Op.or]: [
-              { pausetime_end_date: { [Op.lt]: startDate } },
-              { pausetime_end_date: null },
-            ],
-          },
-          {
-            [Op.or]: [
-              { start_date: { [Op.lte]: endDate } },
+              { start_date: { [Op.lte]: startDate } },
               { start_date: null },
             ],
+          },
+          {
             [Op.or]: [
-              { end_date: { [Op.gte]: startDate } },
+              { end_date: { [Op.gte]: endDate } },
               { end_date: null },
             ],
           },

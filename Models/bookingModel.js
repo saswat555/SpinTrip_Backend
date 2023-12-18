@@ -7,8 +7,8 @@ module.exports = (sequelize, DataTypes) => {
     timestamp: DataTypes.DATE,
     id: {type: DataTypes.INTEGER},
     Transactionid: { type: DataTypes.STRING, unique: true },
-    startTripDate: { type: DataTypes.DATE, allowNull: true },
-    endTripDate: { type: DataTypes.DATE, allowNull: true },
+    startTripDate: { type: DataTypes.DATEONLY, allowNull: true },
+    endTripDate: { type: DataTypes.DATEONLY, allowNull: true },
   });
 
 

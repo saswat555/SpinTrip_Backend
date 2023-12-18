@@ -225,7 +225,6 @@ router.put('/listing', authenticate, async (req, res) => {
 router.get('/host-bookings', authenticate, async (req, res) => {
   try {
     const hostId = req.user.id;
-    console.log(hostId);
     let bookings = await Booking.findAll({
       include: [
         {
@@ -235,18 +234,15 @@ router.get('/host-bookings', authenticate, async (req, res) => {
         }
       ],
     });
-    const current = new Date();
-    const currentDate = current.toISOString().split('T')[0];;
-    const currentTime = current.toISOString().split('T')[1].split('.')[0];;
-
+    const current = new Date();    
+    const currentDate = current.toISOString().split('T')[0];
+    const currentTime = current.toISOString().split('T')[1].split('.')[0];
     let pastBookings = [];
     let currentBookings = [];
     let futureBookings = [];
-
     bookings.forEach((booking) => {
       const startDate = booking.startTripDate;
       const endDate = booking.endTripDate;
-
       if ( endDate < currentDate ){
         pastBookings.push(booking);
       } else if ( ( startDate <= currentDate ) && ( endDate >= currentDate)) {
