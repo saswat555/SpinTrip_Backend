@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin, UserAdditional } = require('../Models');
+const { User, Admin, UserAdditional, Booking, Host } = require('../Models');
 
 const router = express.Router();
 const generateOTP = () => {
@@ -93,6 +93,22 @@ router.get('/profile', authenticate, async (req, res) => {
     res.status(500).json({ message: error });
   }
 });
+router.get('/cars', async (req, res) => {
+  const cars = await Car.findAll();
+  res.status(200).json({ "message": "All available cars", cars })
+})
+router.get('/bookings', async (req, res) => {
+  const bookings = await Booking.findAll();
+  res.status(200).json({ "message": "All available Bookings", bookings })
+})
+router.get('/hosts', async (req, res) => {
+  const hosts = await Host.findAll();
+  res.status(200).json({ "message": "All available Hosts", hosts })
+})
+router.get('/users', async (req, res) => {
+  const users = await User.findAll();
+  res.status(200).json({ "message": "All available Users", users })
+})
 
 
 module.exports = router;
