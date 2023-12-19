@@ -258,6 +258,45 @@ router.get('/host-bookings', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
+router.post('/rating', authenticate, async (req, res) => {
+  try {
+    let { BookingId , rating } = req.body;
+    if (!rating) {
+      rating = 5 ;
+    }
+    const userId = req.user.id;
+    const booking = await Booking.findOne({
+      where: {
+        Bookingid: BookingId,
+        //id: userId,
+      }
+    });
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+    const user = await User.findOne({
+      where: {
+        id: booking.id,
+      }
+    });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+  
+    const bookingCount = await Booking.count({
+      where: {
+        id: booking.id,
+      }
+    });
+    console.log(bookingCount);
+    let new_rating = ( parseFloat(rating) + parseFloat(user.rating * ( bookingCount - 1 )) )/( bookingCount );
+    user.update({ rating:new_rating });
+    res.status(201).json( user);
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 module.exports = router;
 

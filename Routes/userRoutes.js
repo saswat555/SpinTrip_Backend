@@ -257,4 +257,69 @@ router.post('/booking', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+router.post('/booking-completed', authenticate, async (req, res) => {
+  try{
+
+    const { BookingId } = req.body;
+    const booking = await Booking.findOne({
+      where: {
+        Bookingid: BookingId,
+        //id: userId,
+      }
+    });
+    const car = await Car.findOne({
+      where: {
+        carid: booking.carid,
+      }
+    });    
+    await Listing.update(
+      { bookingId: null},
+      { where: { carid: car.carid }}
+    );
+    return res.json({ message: 'booking complete', redirectTo: '/rating', BookingId });
+  }catch(error){
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+router.post('/rating', authenticate, async (req, res) => {
+  try {
+    let { BookingId , rating } = req.body;
+    if (!rating) {
+      rating = 5 ;
+    }
+    const userId = req.user.id;
+    const booking = await Booking.findOne({
+      where: {
+        Bookingid: BookingId,
+        //id: userId,
+      }
+    });
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+    const car = await Car.findOne({
+      where: {
+        carid: booking.carid,
+      }
+    });
+    if (!car) {
+      return res.status(404).json({ message: 'Car not found' });
+    }
+    const bookingCount = await Booking.count({
+      where: {
+        carid: booking.carid,
+      }
+    });
+    
+    let new_rating = ( parseFloat(rating) + parseFloat(car.rating * ( bookingCount - 1) ))/bookingCount;
+    car.update({ rating:new_rating });
+    res.status(201).json(car);
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
