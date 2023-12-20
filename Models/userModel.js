@@ -7,7 +7,8 @@ module.exports = (sequelize, DataTypes) => {
     role: DataTypes.STRING(50),
     otp:DataTypes.STRING(100),
     timestamp: DataTypes.DATE,
-    status:DataTypes.INTEGER
+    status:DataTypes.INTEGER,
+    rating: DataTypes.FLOAT
   });
 
   return User;

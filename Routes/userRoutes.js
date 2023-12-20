@@ -2,7 +2,8 @@
 const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional, Listing,Pricing, sequelize} = require('../Models');
+
+const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing} = require('../Models');
 const { Op } = require('sequelize');
 
 const router = express.Router();
@@ -155,7 +156,6 @@ router.get('/pricing', async (req, res) => {
 
 router.post('/findcars', async (req, res) => {
   const { startDate, endDate } = req.body;
-
   try {
     const availableListings = await Listing.findAll({
       where: {
@@ -179,16 +179,21 @@ router.post('/findcars', async (req, res) => {
             ],
           },
           {
-            // Check if start_date is before or equal to user's end_date
+            // Check if start_date is before or equal to user's end_date 
             [Op.or]: [
-              { start_date: { [Op.lte]: endDate } },
+              { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
               { start_date: null },
             ],
             // Check if end_date is after or equal to user's start_date
+          },
+          {
             [Op.or]: [
-              { end_date: { [Op.gte]: startDate } },
+              { end_date: { [Op.gte]: endDate } },                        //Code changed Pratyay
               { end_date: null },
             ],
+          },
+          {
+            bookingId: { [Op.eq]: null },                                 //Code changed Pratyay
           },
         ],
       },
@@ -205,4 +210,140 @@ router.post('/findcars', async (req, res) => {
     res.status(500).json({ message: 'Error finding available cars' });
   }
 });
+
+router.post('/booking', authenticate, async (req, res) => {
+  try {
+    const { carid, startDate, endDate } = req.body;
+    const userId = req.user.id;
+    const isCarAvailable = await Listing.findOne({
+      where: {
+        carid: carid,
+        [Op.and]: [
+          {
+            [Op.or]: [
+              {
+                [Op.or]: [
+                  { pausetime_start_date: { [Op.gt]: endDate } },
+                  { pausetime_start_date: null },
+                ],
+              },
+              {
+                [Op.or]: [
+                  { pausetime_end_date: { [Op.lt]: startDate } },
+                  { pausetime_end_date: null },
+                ],
+              },
+            ],
+          },
+          {
+            [Op.or]: [
+              { start_date: { [Op.lte]: startDate } },
+              { start_date: null },
+            ],
+          },
+          {
+            [Op.or]: [
+              { end_date: { [Op.gte]: endDate } },
+              { end_date: null },
+            ],
+          },
+          {
+            bookingId: { [Op.eq]: null },
+          }
+        ],
+      },
+    });
+    if (!isCarAvailable) {
+      return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
+    }
+    try {
+      let booking = await Booking.create({
+        carid: carid,
+        startTripDate: startDate,
+        endTripDate: endDate,
+        id: userId,
+      });
+
+      console.log(booking);
+      await Listing.update(
+        { bookingId: booking.Bookingid},
+        { where: { carid: carid }}
+      );
+
+
+      res.status(201).json({ message: 'Booking successful', booking });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error processing booking' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+router.post('/booking-completed', authenticate, async (req, res) => {
+  try{
+
+    const { BookingId } = req.body;
+    const booking = await Booking.findOne({
+      where: {
+        Bookingid: BookingId,
+        //id: userId,
+      }
+    });
+    const car = await Car.findOne({
+      where: {
+        carid: booking.carid,
+      }
+    });    
+    await Listing.update(
+      { bookingId: null},
+      { where: { carid: car.carid }}
+    );
+    return res.json({ message: 'booking complete', redirectTo: '/rating', BookingId });
+  }catch(error){
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+router.post('/rating', authenticate, async (req, res) => {
+  try {
+    let { BookingId , rating } = req.body;
+    if (!rating) {
+      rating = 5 ;
+    }
+    const userId = req.user.id;
+    const booking = await Booking.findOne({
+      where: {
+        Bookingid: BookingId,
+        //id: userId,
+      }
+    });
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+    const car = await Car.findOne({
+      where: {
+        carid: booking.carid,
+      }
+    });
+    if (!car) {
+      return res.status(404).json({ message: 'Car not found' });
+    }
+    const bookingCount = await Booking.count({
+      where: {
+        carid: booking.carid,
+      }
+    });
+    
+    let new_rating = ( parseFloat(rating) + parseFloat(car.rating * ( bookingCount - 1) ))/bookingCount;
+    car.update({ rating:new_rating });
+    res.status(201).json(car);
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
