@@ -29,6 +29,7 @@
   db.UserAdditional = require('./userAdditionalModel')(sequelize, DataTypes);
   db.Booking = require('./bookingModel')(sequelize, DataTypes);
   db.Listing = require('./listingModel')(sequelize, DataTypes);
+  db.Pricing = require('./pricingModel')(sequelize, DataTypes);
   // Set up associations
   const associateModels = () => {
     const { User, Admin, Car, Host, UserAdditional, Booking, Listing } = sequelize.models;
