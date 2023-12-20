@@ -2,7 +2,8 @@
 const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional, Listing, sequelize, Booking} = require('../Models');
+
+const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing} = require('../Models');
 const { Op } = require('sequelize');
 
 const router = express.Router();
@@ -128,6 +129,29 @@ router.post('/signup', async (req, res) => {
 router.get('/cars', async (req, res) => {
   const cars = await Car.findAll();
   res.status(200).json({ "message": "All available cars", cars })
+})
+
+router.post('/pricing', async (req, res) => {
+  const { year, 
+    kmTravelled,
+    costPerKm,
+    carid,
+    carhostid} = req.body;
+
+    const pricing =await Pricing.create({
+      year, 
+      kmTravelled,
+      costPerKm,
+      carid,
+      carhostid
+      })
+
+  res.status(201).json({ "message": "price for the car", pricing })
+})
+
+router.get('/pricing', async (req, res) => {
+  const pricing = await Pricing.findAll();
+  res.status(200).json({ "message": "Car pricing asscoiated", pricing })
 })
 
 router.post('/findcars', async (req, res) => {
