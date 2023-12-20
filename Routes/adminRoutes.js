@@ -2,16 +2,10 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin, UserAdditional, Booking, Host } = require('../Models');
-
+const { User, Admin, UserAdditional, Booking, Host, Car } = require('../Models');
+const { sendOTP, generateOTP } = require('../Controller/adminController');
 const router = express.Router();
-const generateOTP = () => {
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
-  return otp;
-};
-const sendOTP = (phone, otp) => {
-  console.log(`Sending OTP ${otp} to phone number ${phone}`);
-};
+
 const authAdmin = async (userId) => {
     try {
       const admin = await Admin.findOne({ where: { id: userId } });

@@ -2,22 +2,12 @@
 const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-
 const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing} = require('../Models');
+const { sendOTP, generateOTP } = require('../Controller/userController');
 const { Op } = require('sequelize');
 
 const router = express.Router();
-const generateOTP = () => {
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
-  return otp;
-};
 
-const sendOTP = (phone, otp) => {
-  // Replace this with a code to send OTP via SMS using a free SMS service for India
-  // You'll need to use an external service or library to send SMS, like Twilio
-  // Here, we'll simulate sending the OTP to the console for demonstration purposes
-  console.log(`Sending OTP ${otp} to phone number ${phone}`);
-};
 router.post('/login', async (req, res) => {
   const { phone } = req.body;
   const user = await User.findOne({ where: { phone } });
@@ -27,7 +17,7 @@ router.post('/login', async (req, res) => {
   }
 
   // Generate OTP
-  const otp = generateOTP();
+ const otp = generateOTP();
 
   // Send OTP to the user's phone
   sendOTP(phone, otp);
@@ -283,7 +273,6 @@ router.post('/booking', authenticate, async (req, res) => {
 });
 router.post('/booking-completed', authenticate, async (req, res) => {
   try{
-
     const { BookingId } = req.body;
     const booking = await Booking.findOne({
       where: {

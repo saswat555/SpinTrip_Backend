@@ -4,15 +4,10 @@ const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
 const { Host, Car, User, Listing, UserAdditional, Booking } = require('../Models');
 const { and, TIME } = require('sequelize');
+const { sendOTP, generateOTP } = require('../Controller/hostController');
 
 const router = express.Router();
-const generateOTP = () => {
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
-  return otp;
-};
-const sendOTP = (phone, otp) => {
-  console.log(`Sending OTP ${otp} to phone number ${phone}`);
-};
+
 // Host Login
 router.post('/login',authenticate, async (req, res) => {
   const { phone, password } = req.body;

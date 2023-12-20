@@ -5,6 +5,13 @@ const jwt = require("jsonwebtoken");
 
 // Assigning users to the variable User
 const User = db.users;
+const sendOTP = (phone, otp) => {
+  console.log(`Sending OTP ${otp} to phone number ${phone}`);
+};
+const generateOTP = () => {
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  return otp;
+};
 
 //signing a user up
 //hashing users password before its saved to the database with bcrypt
@@ -83,4 +90,6 @@ const { email, password } = req.body;
 module.exports = {
  signup,
  login,
+ generateOTP,
+ sendOTP,
 }
