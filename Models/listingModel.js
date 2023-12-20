@@ -63,6 +63,10 @@ module.exports = (sequelize, DataTypes) => {
         min: 0, // Ensure it's non-negative
       },
     },
+    bookingId : {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
   });
 
   // Define associations here, if needed

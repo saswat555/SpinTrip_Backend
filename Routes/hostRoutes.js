@@ -2,51 +2,65 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { Host, Car, User, Listing, UserAdditional} = require('../Models');
+const { Host, Car, User, Listing, UserAdditional, Booking } = require('../Models');
+const { and, TIME } = require('sequelize');
 
 const router = express.Router();
-
+const generateOTP = () => {
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  return otp;
+};
+const sendOTP = (phone, otp) => {
+  console.log(`Sending OTP ${otp} to phone number ${phone}`);
+};
 // Host Login
 router.post('/login',authenticate, async (req, res) => {
-  const { email, password } = req.body;
-
+  const { phone, password } = req.body;
   try {
-    const user = await User.findOne({ where: { email } });
-    const host = await Host.findOne({where: { id:user.id }});
+    const user = await User.findOne({ where: { phone } });
+    const host = await Host.findOne({where: { id: user.id }});
 
     if (!host) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid phone or password' });
     }
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid email or password' });
-    }
-
-    const token = jwt.sign({ id: user.id, role: 'host' }, 'your_secret_key');
-    res.json({ message: 'Host logged in', host, token });
+    const otp = generateOTP();
+    sendOTP(phone, otp);
+    await user.update({otp:otp})    
+    return res.json({ message: 'OTP sent successfully', redirectTo: '/verify-otp', phone, otp });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+router.post('/verify-otp', async (req, res) => {
+  const { phone, otp } = req.body;
+  const user = await User.findOne({ where: { phone } })
+  const fixed_otp = user.otp;
+  if (fixed_otp === otp) {
+    const user = await User.findOne({ where: { phone } });
+    const token = jwt.sign({ id: user.id, role: 'host' }, 'your_secret_key');
+    return res.json({ message: 'OTP verified successfully', user, token });
+  } else {
+    return res.status(401).json({ message: 'Invalid OTP' });
+  }
+});
 
 // Host Signup
 router.post('/signup', async (req, res) => {
-  var email = req.body.email;
+  var phone = req.body.phone;
   var password = req.body.password;
   try {
     const bcrypt = require("bcrypt");
     const salt = bcrypt.genSaltSync(10);
     // const hashedPassword = bcrypt.hashSync("my-password", salt);
     const hashedPassword =  await bcrypt.hash(password,salt);
-    const user = await User.create({ email, password: hashedPassword });
+    const user = await User.create({ phone, password: hashedPassword });
     const host = await Host.create({
       id:user.id,
       carid:null
     });
 
-    const token = jwt.sign({ id: host.id, role: 'host' }, 'your_secret_key');
-    res.status(201).json({ message: 'Host created', host, token });
+    res.status(201).json({ message: 'Host created', host});
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error creating host' });
@@ -81,7 +95,6 @@ router.post('/car', async (req, res) => {
     Enginenumber,
     Registrationyear,
     bodytype,
-    carid,
     carhostid,
     timestamp } = req.body;
     
@@ -98,12 +111,11 @@ router.post('/car', async (req, res) => {
     Enginenumber,
     Registrationyear,
     bodytype,
-    carid,
     carhostid,
     timestamp 
     })
     const listing = await Listing.create({
-      carid:carid,
+      carid:car.carid,
       hostid:carhostid,
       details:"Null"
     })
@@ -210,7 +222,81 @@ router.put('/listing', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Error updating listing' });
   }
 });
+router.get('/host-bookings', authenticate, async (req, res) => {
+  try {
+    const hostId = req.user.id;
+    let bookings = await Booking.findAll({
+      include: [
+        {
+          model: Car,
+          where:  hostId ,
+          attributes: [ 'carmodel', 'chassisno', 'Rcnumber', 'Enginenumber' ],
+        }
+      ],
+    });
+    const current = new Date();    
+    const currentDate = current.toISOString().split('T')[0];
+    const currentTime = current.toISOString().split('T')[1].split('.')[0];
+    let pastBookings = [];
+    let currentBookings = [];
+    let futureBookings = [];
+    bookings.forEach((booking) => {
+      const startDate = booking.startTripDate;
+      const endDate = booking.endTripDate;
+      if ( endDate < currentDate ){
+        pastBookings.push(booking);
+      } else if ( ( startDate <= currentDate ) && ( endDate >= currentDate)) {
+        currentBookings.push(booking);
+      } else {
+        futureBookings.push(booking);
+      }
+    });
 
-
+    res.json({ pastBookings, currentBookings, futureBookings });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+router.post('/rating', authenticate, async (req, res) => {
+  try {
+    let { BookingId , rating } = req.body;
+    if (!rating) {
+      rating = 5 ;
+    }
+    const userId = req.user.id;
+    const booking = await Booking.findOne({
+      where: {
+        Bookingid: BookingId,
+        //id: userId,
+      }
+    });
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+    const user = await User.findOne({
+      where: {
+        id: booking.id,
+      }
+    });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+  
+    const bookingCount = await Booking.count({
+      where: {
+        id: booking.id,
+      }
+    });
+    console.log(bookingCount);
+    let new_rating = ( parseFloat(rating) + parseFloat(user.rating * ( bookingCount - 1 )) )/( bookingCount );
+    user.update({ rating:new_rating });
+    res.status(201).json( user);
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 module.exports = router;
 
