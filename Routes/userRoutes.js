@@ -2,7 +2,7 @@
 const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing, Payment} = require('../Models');
+const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing} = require('../Models');
 const { sendOTP, generateOTP } = require('../Controller/userController');
 const { Op } = require('sequelize');
 const Razorpay = require('razorpay');
@@ -355,9 +355,10 @@ router.post('/payment', async( req,res) =>{
   razorpay.orders.create({amount, currency, receipt},  
     async(err, order)=>{ 
     if(!err){ 
-        await Payment.create(
-        { Bookingid:BookingId,
-          razorpayPaymentId: order.id }
+        await Booking.update(
+        { Transactionid: order.id },
+        { amount: amount },
+        { where: { Bookingid: BookingId}}
         );
         res.json(order);
       } 
@@ -374,22 +375,17 @@ router.post('/payment', async( req,res) =>{
 
 });
 router.post('/razorpay-webhook', async (req, res) => {
-  const secret = 'YOUR_RAZORPAY_WEBHOOK_SECRET';
+try{  
+  const secret = 'RAZORPAY_WEBHOOK_SECRET';
   const hmac = crypto.createHmac('sha256', secret);
   const generatedSignature = hmac.update(JSON.stringify(req.body)).digest('hex');
   if (generatedSignature === req.headers['x-razorpay-signature']) {
-    const razorpayPaymentId = req.body.razorpay_order_id;
+    const Transactionid = req.body.razorpay_order_id;
       if (razorpayPaymentId) {
         try {
-          const payment = await Payment.findOne({
-            where: {
-              razorpayPaymentId : razorpayPaymentId,
-            },
-          });
-          if (payment){
           const booking = await Booking.findOne({
             where: {
-              Bookingid: payment.Bookingid,
+              Transactionid: Transactionid,
             },
           });
           if (booking) {
@@ -397,11 +393,7 @@ router.post('/razorpay-webhook', async (req, res) => {
           } else {
             res.status(404).send('Booking not found');
           }
-        }
-        else{
-          res.status(404).send('Payment not found');
-        }
-        } catch (error) {
+        }catch (error) {
           console.error('Webhook Error:', error.message);
           res.status(500).send('Internal Server Error');
         }
@@ -413,6 +405,10 @@ router.post('/razorpay-webhook', async (req, res) => {
    else {
     res.status(403).send('Invalid signature');
   }
+}catch (error) {
+  console.error('Server Error');
+  res.status(500).send('Internal Server Error');
+}
 });
 
 module.exports = router;
