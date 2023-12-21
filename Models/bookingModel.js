@@ -10,6 +10,7 @@ module.exports = (sequelize, DataTypes) => {
     amount: { type: DataTypes.FLOAT, allowNull: true },
     Transactionid: { type: DataTypes.STRING, unique: true },
     startTripDate: { type: DataTypes.DATEONLY, allowNull: true },
+    endTripDate: { type: DataTypes.DATEONLY, allowNull: true },
     startTripTime: { type: DataTypes.TIME, allowNull: true },
     endTripTime: { type: DataTypes.TIME, allowNull: true },
   });

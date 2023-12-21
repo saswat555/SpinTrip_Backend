@@ -152,50 +152,104 @@ router.get('/pricing', async (req, res) => {
 })
 
 router.post('/findcars', async (req, res) => {
-  const { startDate, endDate } = req.body;
+  const { startDate, endDate, startTime, endTime } = req.body;
   try {
     const availableListings = await Listing.findAll({
       where: {
         [Op.and]: [
           {
             [Op.or]: [
-              // Check if pausetime_start_date is after user's end_date or is null (not paused)
               {
                 [Op.or]: [
-                  { pausetime_start_date: { [Op.gt]: endDate } },
-                  { pausetime_start_date: null },
+                  {
+                    pausetime_start_date: {
+                      [Op.gt]: endDate,
+                    },
+                  },
+                  {
+                    pausetime_end_date: {
+                      [Op.lt]: startDate,
+                    },
+                  },
                 ],
               },
-              // Check if pausetime_end_date is before user's start_date or is null (not paused)
               {
                 [Op.or]: [
-                  { pausetime_end_date: { [Op.lt]: startDate } },
-                  { pausetime_end_date: null },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { pausetime_start_date: endDate },
+                          { pausetime_start_date: null },
+                        ],
+                      },
+                      {
+
+                        [Op.or]: [
+                          { pausetime_start_time: { [Op.gte]: endTime } },
+                          { pausetime_start_time: null },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { pausetime_end_date: startDate },
+                          { start_date: null },
+                        ],
+                      },
+                      {
+                        [Op.or]: [
+                          { pausetime_end_time: { [Op.lte]: startTime } },
+                          { pausetime_end_time: null },
+                        ],
+                      },
+                    ],
+                  },
                 ],
               },
             ],
           },
           {
-            // Check if start_date is before or equal to user's end_date 
-            [Op.or]: [
-              { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
-              { start_date: null },
-            ],
-            // Check if end_date is after or equal to user's start_date
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
+                { start_date: null },
+              ],
+            },
+            {
+              [Op.or]: [
+                { start_time: { [Op.lte]: startTime } },                  //Code changed Pratyay
+                { start_time: null },
+              ],
+            }
+          ],
           },
           {
-            [Op.or]: [
-              { end_date: { [Op.gte]: endDate } },                        //Code changed Pratyay
-              { end_date: null },
+            [Op.and]: [
+              {
+                [Op.or]: [
+                  { end_date: { [Op.gte]: endDate } },
+                  { end_date: null },
+                ],
+              },
+              {
+                [Op.or]: [
+                  { end_time: { [Op.gte]: endTime } },                  //Code changed Pratyay
+                  { end_time: null },
+                ],
+              }
             ],
-          },
-          {
-            bookingId: { [Op.eq]: null },                                 //Code changed Pratyay
           },
         ],
+        bookingId: { [Op.eq]: null },
       },
-      include: [Car], // Include associated car details
+      include: [Car],
     });
+
 
     // Extract car information from the listings
     const availableCars = availableListings.map((listing) => listing.Car);
@@ -210,85 +264,129 @@ router.post('/findcars', async (req, res) => {
 
 router.post('/booking', authenticate, async (req, res) => {
   try {
-    const { carid, startDate, endDate, start_time, end_time } = req.body;
+    const { carid, startDate, endDate, startTime, endTime } = req.body;
     const userId = req.user.id;
-    const isCarAvailable = await Listing.findOne({
+    const listing = await Listing.findOne({
       where: {
         carid: carid,
         [Op.and]: [
           {
             [Op.or]: [
               {
-                [Op.and]: [
+                [Op.or]: [
                   {
-                    [Op.or]: [
-                      { pausetime_start_date: { [Op.gte]: endDate } },
-                      { pausetime_start_date: null },
-                    ],
+                    pausetime_start_date: {
+                      [Op.gt]: endDate,
+                    },
                   },
                   {
-                    [Op.or]: [
-                      { pausetime_start_time: { [Op.gt]: end_time } },
-                      { pausetime_start_time: null },
-                    ],
-
+                    pausetime_end_date: {
+                      [Op.lt]: startDate,
+                    },
                   },
                 ],
               },
               {
-                [Op.and]: [
+                [Op.or]: [
                   {
-                    [Op.or]: [
-                      { pausetime_end_date: { [Op.lte]: startDate } },
-                      { pausetime_end_date: null },
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { pausetime_start_date: endDate },
+                          { pausetime_start_date: null },
+                        ],
+                      },
+                      {
+
+                        [Op.or]: [
+                          { pausetime_start_time: { [Op.gte]: endTime } },
+                          { pausetime_start_time: null },
+                        ],
+                      },
                     ],
                   },
                   {
-                    [Op.or]: [
-                      { pausetime_end_time: { [Op.lt]: start_time } },
-                      { pausetime_end_time: null },
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { pausetime_end_date: startDate },
+                          { start_date: null },
+                        ],
+                      },
+                      {
+                        [Op.or]: [
+                          { pausetime_end_time: { [Op.lte]: startTime } },
+                          { pausetime_end_time: null },
+                        ],
+                      },
                     ],
-
-                  }
-                ]
+                  },
+                ],
               },
             ],
           },
           {
-            [Op.or]: [
-              { start_date: { [Op.lte]: startDate } },
-              { start_date: null },
-            ],
-          },
-          {
-            [Op.or]: [
-              { end_date: { [Op.gte]: endDate } },
-              { end_date: null },
-            ],
+          [Op.and]: [
+            {
+              [Op.or]: [
+                { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
+                { start_date: null },
+              ],
+            },
+            {
+              [Op.or]: [
+                { start_time: { [Op.lte]: startTime } },                  //Code changed Pratyay
+                { start_time: null },
+              ],
+            }
+          ],
           },
           {
             [Op.and]: [
               {
                 [Op.or]: [
-                  { start_time: { [Op.lte]: start_time } },
-                  { start_time: null },
+                  { end_date: { [Op.gte]: endDate } },
+                  { end_date: null },
                 ],
               },
               {
                 [Op.or]: [
-                  { end_time: { [Op.gte]: end_time } },
+                  { end_time: { [Op.gte]: endTime } },                  //Code changed Pratyay
                   { end_time: null },
                 ],
-              },
+              }
             ],
           },
-          {
-            bookingId: { [Op.eq]: null },
-          }
         ],
+        bookingId: { [Op.eq]: null },
       },
     });
-    if (!isCarAvailable) {
+    console.log(listing);
+    if (listing) {
+      const check_booking = await Booking.findOne({
+        where: {
+          carid: carid,
+          [Op.or]: [
+            {
+              [Op.and]: [
+                { startTripDate: { [Op.gte]: startDate } },
+                { startTripDate: { [Op.lte]: endDate } },
+              ],
+            },
+            {
+              [Op.and]: [
+                { endTripDate: { [Op.gte]: startDate } },
+                { endTripDate: { [Op.lte]: endDate } },
+              ],
+            },
+          ],
+        },
+      });
+      if (check_booking) {
+        return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
+      }
+    }
+    else {
       return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
     }
     try {
@@ -296,14 +394,10 @@ router.post('/booking', authenticate, async (req, res) => {
         carid: carid,
         startTripDate: startDate,
         endTripDate: endDate,
+        startTripTime: startTime,
+        endTripTime: endTrip,
         id: userId,
       });
-
-      console.log(booking);
-      await Listing.update(
-        { bookingId: booking.Bookingid },
-        { where: { carid: carid } }
-      );
       res.status(201).json({ message: 'Booking successful', booking });
     } catch (error) {
       console.error(error);
@@ -313,6 +407,27 @@ router.post('/booking', authenticate, async (req, res) => {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
+});
+router.post('/Trip-Started', authenticate, async (req, res) => {
+  try {
+    const { Bookingid } = req.body;
+    const booking = await Booking.findOne(
+      { where: { Bookingid: Bookingid } }
+    );
+    await Listing.update(
+      { bookingId: Bookingid },
+      { where: { carid: booking.carid } }
+    );
+    await Booking.update(
+      { status: 'In Progress' },
+      { where: { Bookingid: Bookingid } }
+    );
+    res.status(201).json({ message: 'Trip Has Started' });
+  }
+  catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+
 });
 router.post('/booking-completed', authenticate, async (req, res) => {
   try {
@@ -332,6 +447,10 @@ router.post('/booking-completed', authenticate, async (req, res) => {
     await Listing.update(
       { bookingId: null },
       { where: { carid: car.carid } }
+    );
+    await Booking.update(
+      { status: 'Completed' },
+      { where: { Bookingid: BookingId } }
     );
     return res.json({ message: 'booking complete', redirectTo: '/rating', BookingId });
     // }
