@@ -6,7 +6,17 @@ const generateOTP = () => {
     console.log(`Sending OTP ${otp} to phone number ${phone}`);
   };
 
+const authAdmin = async (userId) => {
+    try {
+      const admin = await Admin.findOne({ where: { id: userId } });
+      return admin !== null;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  };
 module.exports = {
     generateOTP,
     sendOTP,
+    authAdmin
 }

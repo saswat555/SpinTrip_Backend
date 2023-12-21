@@ -3,37 +3,29 @@ const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
 const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing } = require('../Models');
-const { sendOTP, generateOTP } = require('../Controller/userController');
+const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { Op } = require('sequelize');
-const Razorpay = require('razorpay');
 const crypto = require('crypto');
-
 const router = express.Router();
 
-const razorpay = new Razorpay({
-  key_id: 'RAZORPAY_KEY_ID',
-  key_secret: 'RAZORPAY_KEY_SECRET',
-});
+//Login
 
 router.post('/login', async (req, res) => {
   const { phone } = req.body;
   const user = await User.findOne({ where: { phone } });
-
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
   }
-
   // Generate OTP
   const otp = generateOTP();
-
   // Send OTP to the user's phone
   sendOTP(phone, otp);
   await user.update({ otp: otp })
-
   // Redirect to verify OTP route
   return res.json({ message: 'OTP sent successfully', redirectTo: '/verify-otp', phone, otp });
 });
 
+//Verify-OTP
 router.post('/verify-otp', async (req, res) => {
   const { phone, otp } = req.body;
   const user = await User.findOne({ where: { phone } })
@@ -46,6 +38,9 @@ router.post('/verify-otp', async (req, res) => {
     return res.status(401).json({ message: 'Invalid OTP' });
   }
 });
+
+//Profile
+
 router.get('/profile', authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -63,6 +58,8 @@ router.get('/profile', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Add Profile
 
 router.put('/profile', authenticate, async (req, res) => {
   try {
@@ -90,6 +87,7 @@ router.put('/profile', authenticate, async (req, res) => {
   }
 })
 
+//Signup
 router.post('/signup', async (req, res) => {
   const { phone, password, role } = req.body;
 
@@ -123,11 +121,14 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+
+//Get All Cars
 router.get('/cars', async (req, res) => {
   const cars = await Car.findAll();
   res.status(200).json({ "message": "All available cars", cars })
 })
 
+//Pricing
 router.post('/pricing', async (req, res) => {
   const { year,
     kmTravelled,
@@ -151,6 +152,7 @@ router.get('/pricing', async (req, res) => {
   res.status(200).json({ "message": "Car pricing asscoiated", pricing })
 })
 
+//Find Cars
 router.post('/findcars', async (req, res) => {
   const { startDate, endDate, startTime, endTime } = req.body;
   try {
@@ -213,20 +215,20 @@ router.post('/findcars', async (req, res) => {
             ],
           },
           {
-          [Op.and]: [
-            {
-              [Op.or]: [
-                { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
-                { start_date: null },
-              ],
-            },
-            {
-              [Op.or]: [
-                { start_time: { [Op.lte]: startTime } },                  //Code changed Pratyay
-                { start_time: null },
-              ],
-            }
-          ],
+            [Op.and]: [
+              {
+                [Op.or]: [
+                  { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
+                  { start_date: null },
+                ],
+              },
+              {
+                [Op.or]: [
+                  { start_time: { [Op.lte]: startTime } },                  //Code changed Pratyay
+                  { start_time: null },
+                ],
+              }
+            ],
           },
           {
             [Op.and]: [
@@ -262,6 +264,7 @@ router.post('/findcars', async (req, res) => {
   }
 });
 
+//Booking
 router.post('/booking', authenticate, async (req, res) => {
   try {
     const { carid, startDate, endDate, startTime, endTime } = req.body;
@@ -326,20 +329,20 @@ router.post('/booking', authenticate, async (req, res) => {
             ],
           },
           {
-          [Op.and]: [
-            {
-              [Op.or]: [
-                { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
-                { start_date: null },
-              ],
-            },
-            {
-              [Op.or]: [
-                { start_time: { [Op.lte]: startTime } },                  //Code changed Pratyay
-                { start_time: null },
-              ],
-            }
-          ],
+            [Op.and]: [
+              {
+                [Op.or]: [
+                  { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
+                  { start_date: null },
+                ],
+              },
+              {
+                [Op.or]: [
+                  { start_time: { [Op.lte]: startTime } },                  //Code changed Pratyay
+                  { start_time: null },
+                ],
+              }
+            ],
           },
           {
             [Op.and]: [
@@ -408,6 +411,9 @@ router.post('/booking', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+//Trip-Started
+
 router.post('/Trip-Started', authenticate, async (req, res) => {
   try {
     const { Bookingid } = req.body;
@@ -429,6 +435,9 @@ router.post('/Trip-Started', authenticate, async (req, res) => {
   }
 
 });
+
+//Booking-Completed
+
 router.post('/booking-completed', authenticate, async (req, res) => {
   try {
     const { BookingId } = req.body;
@@ -463,6 +472,8 @@ router.post('/booking-completed', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+//Rating
 router.post('/rating', authenticate, async (req, res) => {
   try {
     let { BookingId, rating } = req.body;
@@ -503,6 +514,7 @@ router.post('/rating', authenticate, async (req, res) => {
   }
 });
 
+//Payment
 router.post('/payment', async (req, res) => {
   try {
     const { BookingId } = req.body;
@@ -531,6 +543,9 @@ router.post('/payment', async (req, res) => {
   }
 
 });
+
+//Razorpay-webhook
+
 router.post('/razorpay-webhook', async (req, res) => {
   try {
     const secret = 'RAZORPAY_WEBHOOK_SECRET';
