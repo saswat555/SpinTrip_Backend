@@ -2,11 +2,18 @@
 const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing} = require('../Models');
+const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing, Payment} = require('../Models');
 const { sendOTP, generateOTP } = require('../Controller/userController');
 const { Op } = require('sequelize');
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
 
 const router = express.Router();
+
+const razorpay = new Razorpay({
+  key_id: 'RAZORPAY_KEY_ID',
+  key_secret: 'RAZORPAY_KEY_SECRET',
+});
 
 router.post('/login', async (req, res) => {
   const { phone } = req.body;
@@ -259,8 +266,6 @@ router.post('/booking', authenticate, async (req, res) => {
         { bookingId: booking.Bookingid},
         { where: { carid: carid }}
       );
-
-
       res.status(201).json({ message: 'Booking successful', booking });
     } catch (error) {
       console.error(error);
@@ -274,6 +279,7 @@ router.post('/booking', authenticate, async (req, res) => {
 router.post('/booking-completed', authenticate, async (req, res) => {
   try{
     const { BookingId } = req.body;
+    // if (payment.status === 'captured') {
     const booking = await Booking.findOne({
       where: {
         Bookingid: BookingId,
@@ -290,6 +296,11 @@ router.post('/booking-completed', authenticate, async (req, res) => {
       { where: { carid: car.carid }}
     );
     return res.json({ message: 'booking complete', redirectTo: '/rating', BookingId });
+    // }
+    // else {
+      // Payment not successful
+      // return res.status(400).json({ message: 'Payment failed' });
+    // }
   }catch(error){
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -332,6 +343,75 @@ router.post('/rating', authenticate, async (req, res) => {
   catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/payment', async( req,res) =>{
+  try { 
+  const { BookingId } = req.body;
+  let amount = '1';
+  let currency = 'INR';
+  let receipt = '1';
+  razorpay.orders.create({amount, currency, receipt},  
+    async(err, order)=>{ 
+    if(!err){ 
+        await Payment.create(
+        { Bookingid:BookingId,
+          razorpayPaymentId: order.id }
+        );
+        res.json(order);
+      } 
+      else{
+        res.send(err); 
+      }
+    }  
+  )
+  }  
+  catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  } 
+
+});
+router.post('/razorpay-webhook', async (req, res) => {
+  const secret = 'YOUR_RAZORPAY_WEBHOOK_SECRET';
+  const hmac = crypto.createHmac('sha256', secret);
+  const generatedSignature = hmac.update(JSON.stringify(req.body)).digest('hex');
+  if (generatedSignature === req.headers['x-razorpay-signature']) {
+    const razorpayPaymentId = req.body.razorpay_order_id;
+      if (razorpayPaymentId) {
+        try {
+          const payment = await Payment.findOne({
+            where: {
+              razorpayPaymentId : razorpayPaymentId,
+            },
+          });
+          if (payment){
+          const booking = await Booking.findOne({
+            where: {
+              Bookingid: payment.Bookingid,
+            },
+          });
+          if (booking) {
+            res.status(200).send('Payment Successful');
+          } else {
+            res.status(404).send('Booking not found');
+          }
+        }
+        else{
+          res.status(404).send('Payment not found');
+        }
+        } catch (error) {
+          console.error('Webhook Error:', error.message);
+          res.status(500).send('Internal Server Error');
+        }
+      } 
+      else {
+        res.status(404).send('Razor Payment Id not found');
+      }
+    } 
+   else {
+    res.status(403).send('Invalid signature');
   }
 });
 
