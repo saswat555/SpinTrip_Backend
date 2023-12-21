@@ -2,7 +2,7 @@
 const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing} = require('../Models');
+const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing } = require('../Models');
 const { sendOTP, generateOTP } = require('../Controller/userController');
 const { Op } = require('sequelize');
 const Razorpay = require('razorpay');
@@ -24,11 +24,11 @@ router.post('/login', async (req, res) => {
   }
 
   // Generate OTP
- const otp = generateOTP();
+  const otp = generateOTP();
 
   // Send OTP to the user's phone
   sendOTP(phone, otp);
-  await user.update({otp:otp})
+  await user.update({ otp: otp })
 
   // Redirect to verify OTP route
   return res.json({ message: 'OTP sent successfully', redirectTo: '/verify-otp', phone, otp });
@@ -56,7 +56,7 @@ router.get('/profile', authenticate, async (req, res) => {
     }
     const additionalinfo = await UserAdditional.findByPk(userId)
     // You can include more fields as per your User model
-    res.json({ phone: user.phone, role: user.id , additionalinfo: additionalinfo});
+    res.json({ phone: user.phone, role: user.id, additionalinfo: additionalinfo });
 
   } catch (error) {
     console.error(error);
@@ -64,30 +64,30 @@ router.get('/profile', authenticate, async (req, res) => {
   }
 });
 
-router.put('/profile',authenticate, async (req,res)=>{
-try{
-  const userId = req.user.id;
-  const user = await User.findByPk(userId);
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
+router.put('/profile', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    const additionalinfo = await UserAdditional.findByPk(userId);
+    const { id, DlVerification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data } = req.body;
+    await additionalinfo.update({
+      id: id,
+      DlVerification: DlVerification,
+      FullName: FullName,
+      AadharVfid: AadharVfid,
+      Address: Address,
+      CurrentAddressVfid: CurrentAddressVfid,
+      ml_data: ml_data
+    })
+    res.status(200).json({ message: 'Profile Updated successfully', updatedProfile: UserAdditional })
   }
-  const additionalinfo = await UserAdditional.findByPk(userId);
-  const {id , DlVerification, FullName , AadharVfid,Address,CurrentAddressVfid,ml_data } = req.body;
-  await additionalinfo.update({
-    id:id,
-    DlVerification:DlVerification,
-    FullName:FullName,
-    AadharVfid:AadharVfid,
-    Address:Address,
-    CurrentAddressVfid:CurrentAddressVfid,
-    ml_data:ml_data
-  })
-  res.status(200).json({message: 'Profile Updated successfully', updatedProfile: UserAdditional})
-}
-catch(error){
-  console.log(error);
-  res.status(500).json({message: 'Error updating profile', error : error})
-}
+  catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error updating profile', error: error })
+  }
 })
 
 router.post('/signup', async (req, res) => {
@@ -106,7 +106,7 @@ router.post('/signup', async (req, res) => {
     let user;
     // Create user based on the role
     if (role === 'user') {
-      user = await User.create({ phone, password: hashedPassword  });
+      user = await User.create({ phone, password: hashedPassword });
     } else if (role === 'host') {
       user = await Host.create({ phone, password: hashedPassword });
     } else if (role === 'admin') {
@@ -114,7 +114,7 @@ router.post('/signup', async (req, res) => {
     }
 
 
-    UserAdditional.create({id:user.id});
+    UserAdditional.create({ id: user.id });
     // Respond with success message
     res.status(201).json({ message: 'User created', user });
   } catch (error) {
@@ -129,19 +129,19 @@ router.get('/cars', async (req, res) => {
 })
 
 router.post('/pricing', async (req, res) => {
-  const { year, 
+  const { year,
     kmTravelled,
     costPerKm,
     carid,
-    carhostid} = req.body;
+    carhostid } = req.body;
 
-    const pricing =await Pricing.create({
-      year, 
-      kmTravelled,
-      costPerKm,
-      carid,
-      carhostid
-      })
+  const pricing = await Pricing.create({
+    year,
+    kmTravelled,
+    costPerKm,
+    carid,
+    carhostid
+  })
 
   res.status(201).json({ "message": "price for the car", pricing })
 })
@@ -210,7 +210,7 @@ router.post('/findcars', async (req, res) => {
 
 router.post('/booking', authenticate, async (req, res) => {
   try {
-    const { carid, startDate, endDate } = req.body;
+    const { carid, startDate, endDate, start_time, end_time } = req.body;
     const userId = req.user.id;
     const isCarAvailable = await Listing.findOne({
       where: {
@@ -219,16 +219,38 @@ router.post('/booking', authenticate, async (req, res) => {
           {
             [Op.or]: [
               {
-                [Op.or]: [
-                  { pausetime_start_date: { [Op.gt]: endDate } },
-                  { pausetime_start_date: null },
+                [Op.and]: [
+                  {
+                    [Op.or]: [
+                      { pausetime_start_date: { [Op.gte]: endDate } },
+                      { pausetime_start_date: null },
+                    ],
+                  },
+                  {
+                    [Op.or]: [
+                      { pausetime_start_time: { [Op.gt]: end_time } },
+                      { pausetime_start_time: null },
+                    ],
+
+                  },
                 ],
               },
               {
-                [Op.or]: [
-                  { pausetime_end_date: { [Op.lt]: startDate } },
-                  { pausetime_end_date: null },
-                ],
+                [Op.and]: [
+                  {
+                    [Op.or]: [
+                      { pausetime_end_date: { [Op.lte]: startDate } },
+                      { pausetime_end_date: null },
+                    ],
+                  },
+                  {
+                    [Op.or]: [
+                      { pausetime_end_time: { [Op.lt]: start_time } },
+                      { pausetime_end_time: null },
+                    ],
+
+                  }
+                ]
               },
             ],
           },
@@ -242,6 +264,22 @@ router.post('/booking', authenticate, async (req, res) => {
             [Op.or]: [
               { end_date: { [Op.gte]: endDate } },
               { end_date: null },
+            ],
+          },
+          {
+            [Op.and]: [
+              {
+                [Op.or]: [
+                  { start_time: { [Op.lte]: start_time } },
+                  { start_time: null },
+                ],
+              },
+              {
+                [Op.or]: [
+                  { end_time: { [Op.gte]: end_time } },
+                  { end_time: null },
+                ],
+              },
             ],
           },
           {
@@ -263,8 +301,8 @@ router.post('/booking', authenticate, async (req, res) => {
 
       console.log(booking);
       await Listing.update(
-        { bookingId: booking.Bookingid},
-        { where: { carid: carid }}
+        { bookingId: booking.Bookingid },
+        { where: { carid: carid } }
       );
       res.status(201).json({ message: 'Booking successful', booking });
     } catch (error) {
@@ -277,7 +315,7 @@ router.post('/booking', authenticate, async (req, res) => {
   }
 });
 router.post('/booking-completed', authenticate, async (req, res) => {
-  try{
+  try {
     const { BookingId } = req.body;
     // if (payment.status === 'captured') {
     const booking = await Booking.findOne({
@@ -290,27 +328,27 @@ router.post('/booking-completed', authenticate, async (req, res) => {
       where: {
         carid: booking.carid,
       }
-    });    
+    });
     await Listing.update(
-      { bookingId: null},
-      { where: { carid: car.carid }}
+      { bookingId: null },
+      { where: { carid: car.carid } }
     );
     return res.json({ message: 'booking complete', redirectTo: '/rating', BookingId });
     // }
     // else {
-      // Payment not successful
-      // return res.status(400).json({ message: 'Payment failed' });
+    // Payment not successful
+    // return res.status(400).json({ message: 'Payment failed' });
     // }
-  }catch(error){
+  } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 router.post('/rating', authenticate, async (req, res) => {
   try {
-    let { BookingId , rating } = req.body;
+    let { BookingId, rating } = req.body;
     if (!rating) {
-      rating = 5 ;
+      rating = 5;
     }
     const userId = req.user.id;
     const booking = await Booking.findOne({
@@ -335,9 +373,9 @@ router.post('/rating', authenticate, async (req, res) => {
         carid: booking.carid,
       }
     });
-    
-    let new_rating = ( parseFloat(rating) + parseFloat(car.rating * ( bookingCount - 1) ))/bookingCount;
-    car.update({ rating:new_rating });
+
+    let new_rating = (parseFloat(rating) + parseFloat(car.rating * (bookingCount - 1))) / bookingCount;
+    car.update({ rating: new_rating });
     res.status(201).json(car);
   }
   catch (error) {
@@ -346,41 +384,41 @@ router.post('/rating', authenticate, async (req, res) => {
   }
 });
 
-router.post('/payment', async( req,res) =>{
-  try { 
-  const { BookingId } = req.body;
-  let amount = '1';
-  let currency = 'INR';
-  let receipt = '1';
-  razorpay.orders.create({amount, currency, receipt},  
-    async(err, order)=>{ 
-    if(!err){ 
-        await Booking.update(
-        { Transactionid: order.id },
-        { amount: amount },
-        { where: { Bookingid: BookingId}}
-        );
-        res.json(order);
-      } 
-      else{
-        res.send(err); 
+router.post('/payment', async (req, res) => {
+  try {
+    const { BookingId } = req.body;
+    let amount = '1';
+    let currency = 'INR';
+    let receipt = '1';
+    razorpay.orders.create({ amount, currency, receipt },
+      async (err, order) => {
+        if (!err) {
+          await Booking.update(
+            { Transactionid: order.id },
+            { amount: amount },
+            { where: { Bookingid: BookingId } }
+          );
+          res.json(order);
+        }
+        else {
+          res.send(err);
+        }
       }
-    }  
-  )
-  }  
+    )
+  }
   catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
-  } 
+  }
 
 });
 router.post('/razorpay-webhook', async (req, res) => {
-try{  
-  const secret = 'RAZORPAY_WEBHOOK_SECRET';
-  const hmac = crypto.createHmac('sha256', secret);
-  const generatedSignature = hmac.update(JSON.stringify(req.body)).digest('hex');
-  if (generatedSignature === req.headers['x-razorpay-signature']) {
-    const Transactionid = req.body.razorpay_order_id;
+  try {
+    const secret = 'RAZORPAY_WEBHOOK_SECRET';
+    const hmac = crypto.createHmac('sha256', secret);
+    const generatedSignature = hmac.update(JSON.stringify(req.body)).digest('hex');
+    if (generatedSignature === req.headers['x-razorpay-signature']) {
+      const Transactionid = req.body.razorpay_order_id;
       if (razorpayPaymentId) {
         try {
           const booking = await Booking.findOne({
@@ -393,22 +431,22 @@ try{
           } else {
             res.status(404).send('Booking not found');
           }
-        }catch (error) {
+        } catch (error) {
           console.error('Webhook Error:', error.message);
           res.status(500).send('Internal Server Error');
         }
-      } 
+      }
       else {
         res.status(404).send('Razor Payment Id not found');
       }
-    } 
-   else {
-    res.status(403).send('Invalid signature');
+    }
+    else {
+      res.status(403).send('Invalid signature');
+    }
+  } catch (error) {
+    console.error('Server Error');
+    res.status(500).send('Internal Server Error');
   }
-}catch (error) {
-  console.error('Server Error');
-  res.status(500).send('Internal Server Error');
-}
 });
 
 module.exports = router;
