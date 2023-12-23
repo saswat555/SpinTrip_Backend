@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
     time: DataTypes.DATE,
     timestamp: DataTypes.DATE,
     id: {type: DataTypes.INTEGER},
-    status: { type: DataTypes.STRING,allowNull: true },
+    status: { type: DataTypes.INTEGER,allowNull: true },
     amount: { type: DataTypes.FLOAT, allowNull: true },
     Transactionid: { type: DataTypes.STRING, unique: true },
     startTripDate: { type: DataTypes.DATEONLY, allowNull: true },

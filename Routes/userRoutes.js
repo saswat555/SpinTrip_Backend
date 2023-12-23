@@ -215,35 +215,58 @@ router.post('/findcars', async (req, res) => {
             ],
           },
           {
-            [Op.and]: [
+            [Op.or]: [
               {
-                [Op.or]: [
-                  { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
-                  { start_date: null },
+                [Op.and]: [
+                  {
+                    start_date: {
+                      [Op.lt]: startDate,
+                    },
+                  },
+                  {
+                    end_date: {
+                      [Op.gt]: endDate,
+                    },
+                  },
                 ],
               },
               {
                 [Op.or]: [
-                  { start_time: { [Op.lte]: startTime } },                  //Code changed Pratyay
-                  { start_time: null },
-                ],
-              }
-            ],
-          },
-          {
-            [Op.and]: [
-              {
-                [Op.or]: [
-                  { end_date: { [Op.gte]: endDate } },
-                  { end_date: null },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { start_date: startDate },
+                          { start_date: null },
+                        ],
+                      },
+                      {
+
+                        [Op.or]: [
+                          { start_time: { [Op.lte]: startTime } },
+                          { start_time: null },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { end_date: endDate },
+                          { end_date: null },
+                        ],
+                      },
+                      {
+                        [Op.or]: [
+                          { end_time: { [Op.gte]: endTime } },
+                          { end_time: null },
+                        ],
+                      },
+                    ],
+                  },
                 ],
               },
-              {
-                [Op.or]: [
-                  { end_time: { [Op.gte]: endTime } },                  //Code changed Pratyay
-                  { end_time: null },
-                ],
-              }
             ],
           },
         ],
@@ -329,35 +352,58 @@ router.post('/booking', authenticate, async (req, res) => {
             ],
           },
           {
-            [Op.and]: [
+            [Op.or]: [
               {
-                [Op.or]: [
-                  { start_date: { [Op.lte]: startDate } },                  //Code changed Pratyay
-                  { start_date: null },
+                [Op.and]: [
+                  {
+                    start_date: {
+                      [Op.lt]: startDate,
+                    },
+                  },
+                  {
+                    end_date: {
+                      [Op.gt]: endDate,
+                    },
+                  },
                 ],
               },
               {
                 [Op.or]: [
-                  { start_time: { [Op.lte]: startTime } },                  //Code changed Pratyay
-                  { start_time: null },
-                ],
-              }
-            ],
-          },
-          {
-            [Op.and]: [
-              {
-                [Op.or]: [
-                  { end_date: { [Op.gte]: endDate } },
-                  { end_date: null },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { start_date: startDate },
+                          { start_date: null },
+                        ],
+                      },
+                      {
+
+                        [Op.or]: [
+                          { start_time: { [Op.lte]: startTime } },
+                          { start_time: null },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { end_date: endDate },
+                          { end_date: null },
+                        ],
+                      },
+                      {
+                        [Op.or]: [
+                          { end_time: { [Op.gte]: endTime } },
+                          { end_time: null },
+                        ],
+                      },
+                    ],
+                  },
                 ],
               },
-              {
-                [Op.or]: [
-                  { end_time: { [Op.gte]: endTime } },                  //Code changed Pratyay
-                  { end_time: null },
-                ],
-              }
             ],
           },
         ],
@@ -369,22 +415,71 @@ router.post('/booking', authenticate, async (req, res) => {
       const check_booking = await Booking.findOne({
         where: {
           carid: carid,
-          [Op.or]: [
-            {
-              [Op.and]: [
-                { startTripDate: { [Op.gte]: startDate } },
-                { startTripDate: { [Op.lte]: endDate } },
-              ],
-            },
-            {
-              [Op.and]: [
-                { endTripDate: { [Op.gte]: startDate } },
-                { endTripDate: { [Op.lte]: endDate } },
-              ],
-            },
+          [Op.and]: [{
+            [Op.or]: [
+              {
+                [Op.and]: [
+                  {
+                    startTripDate: {
+                      [Op.lt]: startDate,
+                    },
+                  },
+                  {
+                    endTripDate: {
+                      [Op.gt]: endDate,
+                    },
+                  },
+                ],
+              },
+              {
+                [Op.or]: [
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { startTripDate: startDate },
+                          { startTripDate: null },
+                        ],
+                      },
+                      {
+
+                        [Op.or]: [
+                          { startTripTime: { [Op.lte]: startTime } },
+                          { startTripTime: null },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { endTripDate: endDate },
+                          { endTripDate: null },
+                        ],
+                      },
+                      {
+                        [Op.or]: [
+                          { endTripTime: { [Op.gte]: endTime } },
+                          { endTripTime: null },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            [Op.or]: [
+              { status: { [Op.eq]: 1 } },
+              { status: { [Op.eq]: 2 } },
+            ],
+          },
           ],
         },
-      });
+      }
+      );
       if (check_booking) {
         return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
       }
@@ -398,8 +493,9 @@ router.post('/booking', authenticate, async (req, res) => {
         startTripDate: startDate,
         endTripDate: endDate,
         startTripTime: startTime,
-        endTripTime: endTrip,
+        endTripTime: endTime,
         id: userId,
+        status: 1,
       });
       res.status(201).json({ message: 'Booking successful', booking });
     } catch (error) {
@@ -425,7 +521,7 @@ router.post('/Trip-Started', authenticate, async (req, res) => {
       { where: { carid: booking.carid } }
     );
     await Booking.update(
-      { status: 'In Progress' },
+      { status: 2 },
       { where: { Bookingid: Bookingid } }
     );
     res.status(201).json({ message: 'Trip Has Started' });
@@ -458,7 +554,7 @@ router.post('/booking-completed', authenticate, async (req, res) => {
       { where: { carid: car.carid } }
     );
     await Booking.update(
-      { status: 'Completed' },
+      { status: 3 },
       { where: { Bookingid: BookingId } }
     );
     return res.json({ message: 'booking complete', redirectTo: '/rating', BookingId });
