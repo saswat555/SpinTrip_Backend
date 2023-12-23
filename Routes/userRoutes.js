@@ -291,7 +291,7 @@ router.post('/findcars', async (req, res) => {
 router.post('/booking', authenticate, async (req, res) => {
   try {
     const { carid, startDate, endDate, startTime, endTime } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userid;
     const listing = await Listing.findOne({
       where: {
         carid: carid,
@@ -514,8 +514,9 @@ router.post('/Trip-Started', authenticate, async (req, res) => {
   try {
     const { Bookingid } = req.body;
     const booking = await Booking.findOne(
-      { where: { Bookingid: Bookingid } }
+      { where: { Bookingid: Bookingid, status: 1 } }
     );
+    if(booking){
     await Listing.update(
       { bookingId: Bookingid },
       { where: { carid: booking.carid } }
@@ -525,15 +526,63 @@ router.post('/Trip-Started', authenticate, async (req, res) => {
       { where: { Bookingid: Bookingid } }
     );
     res.status(201).json({ message: 'Trip Has Started' });
+    }
+    else{
+      res.status(404).json({ message: 'Trip Already Started or not present' });
+    }
+  }
+  catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }  
+
+});
+
+//Cancel-Booking
+router.post('/Cancel-Booking', authenticate, async (req, res) => {
+  try {
+    const { Bookingid } = req.body;
+    const booking = await Booking.findOne(
+      { where: { Bookingid: Bookingid } }
+    );
+    if (booking){
+    if (booking.status === 1){
+    await Booking.update(
+      { status: 4 },
+      { where: { Bookingid: Bookingid } }
+    );
+    res.status(201).json({ message: 'Trip Has been Cancelled' });
+    }
+    else{
+      res.status(404).json({ message: 'Ride Already Started' });
+    }
+    }
+    else{
+      res.status(404).json({ message: 'Booking Not found' });
+    }
   }
   catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
+}); 
 
-});
+//User-Bookings
+router.get('/User-Bookings', authenticate, async (req, res) => {
+  try {
+    let userId = req.user.userid;
+    const booking = await Booking.findAll({where:{id : userId}})
+    if (booking){
+      res.status(201).json({ message: booking });
+    }
+    else{
+      res.status(404).json({ message: 'Booking Not found' });
+    }
+  }
+  catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+}); 
 
 //Booking-Completed
-
 router.post('/booking-completed', authenticate, async (req, res) => {
   try {
     const { BookingId } = req.body;
@@ -541,9 +590,11 @@ router.post('/booking-completed', authenticate, async (req, res) => {
     const booking = await Booking.findOne({
       where: {
         Bookingid: BookingId,
+        status: 2,
         //id: userId,
       }
     });
+    if(booking){
     const car = await Car.findOne({
       where: {
         carid: booking.carid,
@@ -557,7 +608,11 @@ router.post('/booking-completed', authenticate, async (req, res) => {
       { status: 3 },
       { where: { Bookingid: BookingId } }
     );
-    return res.json({ message: 'booking complete', redirectTo: '/rating', BookingId });
+    return res.status(201).json({ message: 'booking complete', redirectTo: '/rating', BookingId });
+    }
+    else{
+      return res.status(404).json({ message: 'Start the ride to Complete Booking' });
+    }
     // }
     // else {
     // Payment not successful
