@@ -4,15 +4,10 @@ const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
 const { Host, Car, User, Listing, UserAdditional, Booking } = require('../Models');
 const { and, TIME } = require('sequelize');
+const { sendOTP, generateOTP } = require('../Controller/hostController');
 
 const router = express.Router();
-const generateOTP = () => {
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
-  return otp;
-};
-const sendOTP = (phone, otp) => {
-  console.log(`Sending OTP ${otp} to phone number ${phone}`);
-};
+
 // Host Login
 router.post('/login',authenticate, async (req, res) => {
   const { phone, password } = req.body;
@@ -32,6 +27,8 @@ router.post('/login',authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+//Verify-Otp
 router.post('/verify-otp', async (req, res) => {
   const { phone, otp } = req.body;
   const user = await User.findOne({ where: { phone } })
@@ -127,6 +124,7 @@ router.post('/car', async (req, res) => {
   }
 });
 
+//Listing
 router.get('/listing', authenticate, async (req, res) => {
   const hostid = req.user.userid;
   const host = await Host.findOne({ where: {id:hostid}});
@@ -146,6 +144,7 @@ else{
 
 });
 
+//Delete Listing
 router.delete('/listing', authenticate, async (req, res) => {
   try {
     // Get the listing ID from the request parameters
@@ -180,6 +179,8 @@ router.delete('/listing', authenticate, async (req, res) => {
   }
 });
 
+
+//Put Listing
 
 router.put('/listing', authenticate, async (req, res) => {
   try {
@@ -222,6 +223,8 @@ router.put('/listing', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Error updating listing' });
   }
 });
+
+//Host-Bookings
 router.get('/host-bookings', authenticate, async (req, res) => {
   try {
     const hostId = req.user.id;
@@ -298,5 +301,7 @@ router.post('/rating', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
 module.exports = router;
 
