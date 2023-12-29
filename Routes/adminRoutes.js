@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin, UserAdditional, Booking, Host } = require('../Models');
+const { User, Admin, UserAdditional, Booking, Host, Car } = require('../Models');
 
 const router = express.Router();
 const generateOTP = () => {
