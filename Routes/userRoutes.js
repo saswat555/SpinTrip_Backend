@@ -72,15 +72,6 @@ router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCou
     }
     const additionalinfo = await UserAdditional.findByPk(userId);
     const { id, DlVerification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data } = req.body;
-    await additionalinfo.update({
-      id: id,
-      DlVerification: DlVerification,
-      FullName: FullName,
-      AadharVfid: AadharVfid,
-      Address: Address,
-      CurrentAddressVfid: CurrentAddressVfid,
-      ml_data: ml_data
-    })
     let aadhar,dl;
     if (req.files && req.files.aadharFile) {
       aadhar = req.files.aadharFile[0].path;
@@ -89,14 +80,37 @@ router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCou
     if (req.files && req.files.dlFile) {
       dl = req.files.dlFile[0].path;
     }
-    await client.index({
-      index: 'profiles',
-      id: userId,
-      body: {
-        aadharFilePath: aadhar,
-        dlFilePath: dl,
-      },
-    });
+    if(dl && aadhar){
+      await client.index({
+        index: 'profiles',
+        id: userId,
+        body: {
+          aadharFilePath: aadhar,
+          dlFilePath: dl,
+        },
+      });
+      await additionalinfo.update({
+        id: id,
+        DlVerification: DlVerification,
+        FullName: FullName,
+        AadharVfid: AadharVfid,
+        Address: Address,
+        CurrentAddressVfid: CurrentAddressVfid,
+        status: 'Pending',
+        ml_data: ml_data, 
+      })
+      }
+      else{
+      await additionalinfo.update({
+        id: id,
+        DlVerification: DlVerification,
+        FullName: FullName,
+        AadharVfid: AadharVfid,
+        Address: Address,
+        CurrentAddressVfid: CurrentAddressVfid,
+        ml_data: ml_data
+      })
+      }
     res.status(200).json({ message: 'Profile Updated successfully', updatedProfile: UserAdditional })
   }
   catch (error) {

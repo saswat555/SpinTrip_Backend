@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
 const { User, Admin, UserAdditional, Booking, Host, Car } = require('../Models');
-const { sendOTP, generateOTP, authAdmin } = require('../Controller/adminController');
+const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
 const router = express.Router();
 
 //Login
@@ -105,6 +105,44 @@ router.get('/users', async (req, res) => {
   const users = await User.findAll();
   res.status(200).json({ "message": "All available Users", users })
 })
-
+router.get('/pending-verfication', async (req, res) => {
+  try {
+    let pendingProfiles = await UserAdditional.findAll({
+      where: { status: 'Pending' },    
+    });
+    if ( pendingProfiles.length === 0 ){
+        res.status(200).json({ message: 'No user approval required'});
+    }
+    else{  
+    const elasticsearchQueries = pendingProfiles.map(profile => ({
+      // index: 'profiles',
+       id: profile.id.toString(), 
+    }));
+    const elasticsearchResults = await client.mget({ index: 'profiles', body: {
+      ids: elasticsearchQueries.map(query => query.id),
+    }, 
+    });
+    const combinedProfiles = pendingProfiles.map((profile, index) => ({
+      ...profile.toJSON(),
+      aadharFile: elasticsearchResults.docs[index]._source.aadharFilePath,
+      dlFile: elasticsearchResults.docs[index]._source.dlFilePath,
+    }));
+    res.status(200).json({ combinedProfiles });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error fetching pending profiles', error });
+  }
+})
+router.put('/approve-profile', async (req, res) => {
+  try {
+    const userId = req.body.userId;
+    await UserAdditional.update({ status: 'Approved' }, { where: { id: userId } });
+    res.status(200).json({ message: 'Profile approved successfully' });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error approving profile', error });
+  }
+});
 
 module.exports = router;
