@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const db = require("../Models");
 const jwt = require("jsonwebtoken");
 const Razorpay = require('razorpay');
+const { Client } = require('@elastic/elasticsearch');
 
 // Assigning users to the variable User
 const User = db.users;
@@ -92,12 +93,32 @@ const razorpay = new Razorpay({
   key_secret: 'RAZORPAY_KEY_SECRET',
 });
 
+async function createIndex() {
+  try {
+    const response = await client.indices.create({
+      index: 'profile',
+    });
 
-
+    console.log('Index created successfully:', response.body);
+  } catch (error) {
+    console.error('Error creating index:', error.message);
+  }
+}
+const client = new Client({
+  node: 'https://localhost:9200',
+  auth: {
+    username: 'elastic',
+    password: 'JYkoUkHnVXcmtRX_CBBI',
+  },
+  tls: {
+    rejectUnauthorized: false
+  }
+});
 module.exports = {
  signup,
  login,
  generateOTP,
  sendOTP,
- razorpay
+ razorpay,
+ client
 }

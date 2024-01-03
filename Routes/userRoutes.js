@@ -3,13 +3,15 @@ const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
 const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing } = require('../Models');
-const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
+const { sendOTP, generateOTP, razorpay, client } = require('../Controller/userController');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
+const multer = require('multer');
+
 const router = express.Router();
+const upload = multer({ dest: './uploads' });
 
 //Login
-
 router.post('/login', async (req, res) => {
   const { phone } = req.body;
   const user = await User.findOne({ where: { phone } });
@@ -59,9 +61,9 @@ router.get('/profile', authenticate, async (req, res) => {
   }
 });
 
-// Add Profile
+//Add Profile
 
-router.put('/profile', authenticate, async (req, res) => {
+router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCount: 1 }, { name: 'dlFile', maxCount: 1 }]), async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findByPk(userId);
@@ -70,22 +72,52 @@ router.put('/profile', authenticate, async (req, res) => {
     }
     const additionalinfo = await UserAdditional.findByPk(userId);
     const { id, DlVerification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data } = req.body;
-    await additionalinfo.update({
-      id: id,
-      DlVerification: DlVerification,
-      FullName: FullName,
-      AadharVfid: AadharVfid,
-      Address: Address,
-      CurrentAddressVfid: CurrentAddressVfid,
-      ml_data: ml_data
-    })
+    let aadhar,dl;
+    if (req.files && req.files.aadharFile) {
+      aadhar = req.files.aadharFile[0].path;
+    }
+    
+    if (req.files && req.files.dlFile) {
+      dl = req.files.dlFile[0].path;
+    }
+    if(dl && aadhar){
+      await client.index({
+        index: 'profiles',
+        id: userId,
+        body: {
+          aadharFilePath: aadhar,
+          dlFilePath: dl,
+        },
+      });
+      await additionalinfo.update({
+        id: id,
+        DlVerification: DlVerification,
+        FullName: FullName,
+        AadharVfid: AadharVfid,
+        Address: Address,
+        CurrentAddressVfid: CurrentAddressVfid,
+        status: 'Pending',
+        ml_data: ml_data, 
+      })
+      }
+      else{
+      await additionalinfo.update({
+        id: id,
+        DlVerification: DlVerification,
+        FullName: FullName,
+        AadharVfid: AadharVfid,
+        Address: Address,
+        CurrentAddressVfid: CurrentAddressVfid,
+        ml_data: ml_data
+      })
+      }
     res.status(200).json({ message: 'Profile Updated successfully', updatedProfile: UserAdditional })
   }
   catch (error) {
     console.log(error);
     res.status(500).json({ message: 'Error updating profile', error: error })
   }
-})
+});
 
 //Signup
 router.post('/signup', async (req, res) => {
@@ -516,24 +548,24 @@ router.post('/Trip-Started', authenticate, async (req, res) => {
     const booking = await Booking.findOne(
       { where: { Bookingid: Bookingid, status: 1 } }
     );
-    if(booking){
-    await Listing.update(
-      { bookingId: Bookingid },
-      { where: { carid: booking.carid } }
-    );
-    await Booking.update(
-      { status: 2 },
-      { where: { Bookingid: Bookingid } }
-    );
-    res.status(201).json({ message: 'Trip Has Started' });
+    if (booking) {
+      await Listing.update(
+        { bookingId: Bookingid },
+        { where: { carid: booking.carid } }
+      );
+      await Booking.update(
+        { status: 2 },
+        { where: { Bookingid: Bookingid } }
+      );
+      res.status(201).json({ message: 'Trip Has Started' });
     }
-    else{
+    else {
       res.status(404).json({ message: 'Trip Already Started or not present' });
     }
   }
   catch (err) {
     res.status(500).json({ message: 'Server error' });
-  }  
+  }
 
 });
 
@@ -544,43 +576,43 @@ router.post('/Cancel-Booking', authenticate, async (req, res) => {
     const booking = await Booking.findOne(
       { where: { Bookingid: Bookingid } }
     );
-    if (booking){
-    if (booking.status === 1){
-    await Booking.update(
-      { status: 4 },
-      { where: { Bookingid: Bookingid } }
-    );
-    res.status(201).json({ message: 'Trip Has been Cancelled' });
+    if (booking) {
+      if (booking.status === 1) {
+        await Booking.update(
+          { status: 4 },
+          { where: { Bookingid: Bookingid } }
+        );
+        res.status(201).json({ message: 'Trip Has been Cancelled' });
+      }
+      else {
+        res.status(404).json({ message: 'Ride Already Started' });
+      }
     }
-    else{
-      res.status(404).json({ message: 'Ride Already Started' });
-    }
-    }
-    else{
+    else {
       res.status(404).json({ message: 'Booking Not found' });
     }
   }
   catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
-}); 
+});
 
 //User-Bookings
 router.get('/User-Bookings', authenticate, async (req, res) => {
   try {
     let userId = req.user.userid;
-    const booking = await Booking.findAll({where:{id : userId}})
-    if (booking){
+    const booking = await Booking.findAll({ where: { id: userId } })
+    if (booking) {
       res.status(201).json({ message: booking });
     }
-    else{
+    else {
       res.status(404).json({ message: 'Booking Not found' });
     }
   }
   catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
-}); 
+});
 
 //Booking-Completed
 router.post('/booking-completed', authenticate, async (req, res) => {
@@ -594,23 +626,23 @@ router.post('/booking-completed', authenticate, async (req, res) => {
         //id: userId,
       }
     });
-    if(booking){
-    const car = await Car.findOne({
-      where: {
-        carid: booking.carid,
-      }
-    });
-    await Listing.update(
-      { bookingId: null },
-      { where: { carid: car.carid } }
-    );
-    await Booking.update(
-      { status: 3 },
-      { where: { Bookingid: BookingId } }
-    );
-    return res.status(201).json({ message: 'booking complete', redirectTo: '/rating', BookingId });
+    if (booking) {
+      const car = await Car.findOne({
+        where: {
+          carid: booking.carid,
+        }
+      });
+      await Listing.update(
+        { bookingId: null },
+        { where: { carid: car.carid } }
+      );
+      await Booking.update(
+        { status: 3 },
+        { where: { Bookingid: BookingId } }
+      );
+      return res.status(201).json({ message: 'booking complete', redirectTo: '/rating', BookingId });
     }
-    else{
+    else {
       return res.status(404).json({ message: 'Start the ride to Complete Booking' });
     }
     // }
