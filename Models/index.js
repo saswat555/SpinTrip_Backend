@@ -41,6 +41,7 @@
     Car.belongsTo(Host, { foreignKey: 'carid'});
     Booking.hasOne(User);
     Booking.hasOne(Car);
+    Booking.belongsTo(User, {foreignKey: 'id'});
     Booking.belongsTo(Car, { foreignKey: 'carid' });
     User.hasOne(Admin);
     User.hasOne(Host);

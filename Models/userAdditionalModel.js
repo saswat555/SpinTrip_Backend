@@ -7,6 +7,7 @@ module.exports = (sequelize, DataTypes) => {
       AadharVfid: { type: DataTypes.INTEGER, unique: true },
       Address: DataTypes.TEXT,
       CurrentAddressVfid: { type: DataTypes.INTEGER, unique: true },
+      status: DataTypes.STRING,
       ml_data: DataTypes.BLOB,
 
     });
