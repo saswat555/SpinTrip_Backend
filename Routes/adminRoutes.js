@@ -3,11 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
 const { User, Admin, UserAdditional, Booking, Host, Car } = require('../Models');
-<<<<<<< HEAD
-
-=======
 const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
->>>>>>> c855601613ade90b52b20ae724a44859fd0304f9
 const router = express.Router();
 
 //Login
