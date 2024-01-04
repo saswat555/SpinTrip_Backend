@@ -319,6 +319,24 @@ router.post('/findcars', async (req, res) => {
   }
 });
 
+
+function calculateTripHours(startTripDate, endTripDate, startTripTime, endTripTime) {
+  // Combine date and time into a single string for both start and end
+  const startDateTimeStr = `${startTripDate} ${startTripTime}`;
+  const endDateTimeStr = `${endTripDate} ${endTripTime}`;
+
+  // Parse the date and time strings into Date objects
+  const startDateTime = new Date(startDateTimeStr);
+  const endDateTime = new Date(endDateTimeStr);
+
+  // Calculate the difference in milliseconds and then convert to hours
+  const diffMilliseconds = endDateTime - startDateTime;
+  const diffHours = diffMilliseconds / (1000 * 60 * 60);
+
+  return diffHours;
+}
+
+
 //Booking
 router.post('/booking', authenticate, async (req, res) => {
   try {
@@ -520,6 +538,9 @@ router.post('/booking', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
     }
     try {
+      let cph = await Pricing.findOne({where:{carid:carid}})
+      let hours = calculateTripHours(startTripDate,endTripDate,startTripTime,endTripTime)
+      let amount = cph.amount*hours;
       let booking = await Booking.create({
         carid: carid,
         startTripDate: startDate,
@@ -528,6 +549,7 @@ router.post('/booking', authenticate, async (req, res) => {
         endTripTime: endTime,
         id: userId,
         status: 1,
+        amount: amount
       });
       res.status(201).json({ message: 'Booking successful', booking });
     } catch (error) {
