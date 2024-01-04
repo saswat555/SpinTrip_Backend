@@ -540,7 +540,7 @@ router.post('/booking', authenticate, async (req, res) => {
     try {
       let cph = await Pricing.findOne({where:{carid:carid}})
       let hours = calculateTripHours(startTripDate,endTripDate,startTripTime,endTripTime)
-      let amount = cph.amount*hours;
+      let amount = cph.costPerHr*hours;
       let booking = await Booking.create({
         carid: carid,
         startTripDate: startDate,
