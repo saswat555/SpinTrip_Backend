@@ -244,11 +244,9 @@ router.post('/pricing', async (req, res) => {
   const { carid } = req.body;
   const car = await Car.findOne({ where:{carid:carid}} )
   const carAdditional = await CarAdditional.findOne({ where:{carid: carid}})
-  const costPerKm = await pricing( car, carAdditional );
-  console.log(costPerKm);
-  console.log('hello');
+  const costperhr = await pricing( car, carAdditional );
   const price = await Pricing.create({
-    costPerKm,
+    costperhr,
     carid,
     })
   res.status(201).json({ "message": "price for the car", price })
