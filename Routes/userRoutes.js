@@ -160,30 +160,6 @@ router.get('/cars', async (req, res) => {
   res.status(200).json({ "message": "All available cars", cars })
 })
 
-//Pricing
-router.post('/pricing', async (req, res) => {
-  const { year,
-    kmTravelled,
-    costPerKm,
-    carid,
-    carhostid } = req.body;
-
-  const pricing = await Pricing.create({
-    year,
-    kmTravelled,
-    costPerKm,
-    carid,
-    carhostid
-  })
-
-  res.status(201).json({ "message": "price for the car", pricing })
-})
-
-router.get('/pricing', async (req, res) => {
-  const pricing = await Pricing.findAll();
-  res.status(200).json({ "message": "Car pricing asscoiated", pricing })
-})
-
 //Find Cars
 router.post('/findcars', async (req, res) => {
   const { startDate, endDate, startTime, endTime } = req.body;
@@ -539,8 +515,8 @@ router.post('/booking', authenticate, async (req, res) => {
     }
     try {
       let cph = await Pricing.findOne({where:{carid:carid}})
-      let hours = calculateTripHours(startTripDate,endTripDate,startTripTime,endTripTime)
-      let amount = cph.costPerHr*hours;
+      let hours = calculateTripHours( startDate ,endDate, startTime, endTime );
+      let amount = cph.costperhr*hours;
       let booking = await Booking.create({
         carid: carid,
         startTripDate: startDate,
