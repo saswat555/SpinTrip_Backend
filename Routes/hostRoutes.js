@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing } = require('../Models');
+const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand } = require('../Models');
 const { and, TIME } = require('sequelize');
 const { sendOTP, generateOTP } = require('../Controller/hostController');
 
@@ -10,9 +10,19 @@ const router = express.Router();
 const pricing = async ( car, carAdditional ) => {
   try {
     const currentYear = new Date().getFullYear();
-    const BrandValue = 10;
+    let brand = await Brand.findOne({
+      where: { carmodel: car.carmodel, type: car.type, brand: car.brand },    
+    });
+    if(brand){
+     brand_value = brand.brand_value;
+     base_price = brand.base_price;
+    }
+    else{
+      brand_value = 10;
+      base_price = 100;
+    }
     const Price = 
-    BrandValue +
+      brand_value +
       5 * ( carAdditional.AC? 1 : 0 ) +
       5 * (carAdditional.Musicsystem? 1 : 0) +
       2 * (carAdditional.Autowindow? 1 : 0) +
@@ -23,7 +33,7 @@ const pricing = async ( car, carAdditional ) => {
       2 * (carAdditional.SpareTyre? 1 : 0) +
       10* (carAdditional.FuelType? 1 : 0) +
       2*  (carAdditional.Airbags? 1 : 0)+
-      ( currentYear - car.Registrationyear.substring(0, 4) )* 1.5 + 100;
+      ( currentYear - car.Registrationyear.substring(0, 4) )* 1.5 + base_price;
     return Price;  
   } catch (error) {
     console.error(error);
@@ -108,6 +118,8 @@ router.get('/profile', authenticate, async (req, res) => {
 // Add Car
 router.post('/car', async (req, res) => {
   const { carmodel, 
+    type,
+    brand,
     chassisno,
     Rcnumber,
     Enginenumber,
@@ -124,6 +136,8 @@ router.post('/car', async (req, res) => {
     }
     const car =await Car.create({
     carmodel, 
+    type,
+    brand,
     chassisno,
     Rcnumber,
     Enginenumber,
@@ -177,7 +191,6 @@ router.post('/carAdditional', async (req, res) => {
       Additionalinfo
     },
     { where: { carid: carid } });
-    console.log(carAdditional);
     res.status(201).json({ message: 'Car Additional added', carAdditional });
 
   } catch (error) {
@@ -245,17 +258,25 @@ router.post('/pricing', async (req, res) => {
   const car = await Car.findOne({ where:{carid:carid}} )
   const carAdditional = await CarAdditional.findOne({ where:{carid: carid}})
   const costperhr = await pricing( car, carAdditional );
-  const price = await Pricing.create({
+  const Price = await Pricing.findOne({ where:{carid: carid}})
+  let price;
+  if(Price){
+    price = await Pricing.update(
+     { costperhr: costperhr },
+     { where:{ 
+        carid:carid
+      }}
+      )
+  }
+  else{
+    price = await Pricing.create({
     costperhr,
     carid,
     })
+  }  
   res.status(201).json({ "message": "price for the car", price })
 });
 
-router.get('/pricing', async (req, res) => {
-  const pricing = await Pricing.findAll();
-  res.status(200).json({ "message": "Car pricing asscoiated", pricing })
-});
 
 //Put Listing
 
