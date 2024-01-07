@@ -16,6 +16,11 @@ These instructions will get you a copy of the project up and running on your loc
 
   Make sure PostgreSQL is installed and running on your system. If you need to install it, you can find it on the [PostgreSQL official site](https://www.postgresql.org/).
 
+- **Docker**
+
+  Make sure Docker is installed on all machines that will be part of the swarm.. If you need to install it, you can find it on the [Docker official site](https://docs.docker.com/).
+
+
 ### Installation
 
 1. **Clone the repository:**
@@ -54,7 +59,11 @@ These instructions will get you a copy of the project up and running on your loc
        dialect: 'postgres',
        // other configs
      });
-     ```
+ 
+5.  **Implementing Docker swarm**    
+   - do `docker swarm init --advertise-addr <MANAGER-IP>` to make it manager 
+   - to connect to a swarm as a worker node `docker swarm join --token <token> <manager-ip>:<manager-port>`
+   -and to deploy server `docker stack deploy -c docker-compose.yml spintrip`
 
 ### Running the application
 
@@ -72,3 +81,4 @@ Explain how to run the automated tests for this system (if applicable).
 
 ```bash
 npm test
+

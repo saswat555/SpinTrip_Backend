@@ -10,8 +10,10 @@ const hostRoutes = require('./Routes/hostRoutes');
 const adminRoutes = require('./Routes/adminRoutes');
 // Assigning the variable app to express
 const app = express();
-
+const path = require('path');
+const cors = require('cors');
 // Middleware
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
