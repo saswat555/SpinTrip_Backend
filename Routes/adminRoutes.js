@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin, UserAdditional, Booking, Host, Car } = require('../Models');
+const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing } = require('../Models');
 const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
 const router = express.Router();
 
@@ -144,5 +144,56 @@ router.put('/approve-profile', async (req, res) => {
     res.status(500).json({ message: 'Error approving profile', error });
   }
 });
+router.put('/brand', async (req, res) => {
+  try {
+    const { data } = req.body;
+    const createdBrands = [];
+    console.log(data); 
+    data.forEach(async (item) => {  
+    const { type, brand, carmodel, brand_value, base_price } = item;
+    console.log(item);
+    let brands = await Brand.create({
+      type:type,
+      brand:brand,
+      carmodel:carmodel,
+      brand_value:brand_value,
+      base_price:base_price
+    });
+    createdBrands.push(brands);
+    }); 
+    res.status(200).json({ message: 'Car Brand and Value added successfully', createdBrands });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error adding Car Brand and value', error });
+  }
+});
+router.get('/brand', async (req, res) => {
+  try {
+    const brands = await Brand.findAll();
+    res.status(200).json({ "message": "All available brands", brands })
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error adding Car Brand and value', error });
+  }
+});
+router.put('/update_brand', async (req, res) => {
+try{  
+  const { id, type, brand, carmodel, brand_value, base_price } = req.body;
+  let brands = await Brand.update({
+    brand_value:brand_value,
+    base_price:base_price
+  },
+  { where: { id:id } }
+  );
+  res.status(200).json({ message: 'Car Brand and Value updated successfully', brands });
+} catch (error) {
+  console.log(error);
+  res.status(500).json({ message: 'Error adding Car Brand and value', error });
+}
+});
 
+router.get('/pricing', async (req, res) => {
+  const pricing = await Pricing.findAll();
+  res.status(200).json({ "message": "Car pricing asscoiated", pricing })
+});
 module.exports = router;
