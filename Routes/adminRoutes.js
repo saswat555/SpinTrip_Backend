@@ -2,12 +2,63 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing } = require('../Models');
+const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, CarAdditional } = require('../Models');
 const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
 const router = express.Router();
 
+const pricing = async ( car, carAdditional ) => {
+  try {
+    const currentYear = new Date().getFullYear();
+    let brand = await Brand.findOne({
+      where: { carmodel: car.carmodel, type: car.type, brand: car.brand },    
+    });
+    
+    if(brand){
+     brand_value = brand.brand_value;
+     base_price = brand.base_price;
+    }
+    else{
+      brand_value = 10;
+      base_price = 100;
+    }
+
+    let val, horsePower;
+
+    if( ( car.Registrationyear.substring(0, 4) < 2018) ){
+      val = ( currentYear - car.Registrationyear.substring(0, 4) )* 3;
+    }
+    else{
+      val = ( currentYear - car.Registrationyear.substring(0, 4) )* 1.5;
+    }
+    if( ( carAdditional.HorsePower <= 80 ) || ( !carAdditional.HorsePower ) ){
+      horsePower = 0;
+    }
+    else if( ( carAdditional.HorsePower > 80 && carAdditional.HorsePower < 150 ) ){
+      horsePower = 20;
+    }
+    else{
+      horsePower = 30;
+    }
+    const Price = 
+      brand_value +
+      horsePower +
+      3 * ( carAdditional.AC? 1 : 0 ) +
+      3 * (carAdditional.Musicsystem? 1 : 0) +
+      2 * (carAdditional.Autowindow? 1 : 0) +
+      2 * (carAdditional.Sunroof? 1 : 0) +
+      2 * (carAdditional.touchScreen? 1 : 0)  +
+      15 * (carAdditional.Sevenseater? 1 : 0) +
+      2 * (carAdditional.Reversecamera? 1 : 0) +
+      3 * (carAdditional.Transmission? 1 : 0) +
+      10 * (carAdditional.FuelType? 1 : 0) +
+      2 *  (carAdditional.Airbags? 1 : 0) +
+      val + base_price;  
+    return Price;  
+  } catch (error) {
+    console.error(error);
+  }
+};
 //Login
-  
   router.post('/login', async (req, res) => {
     const { phone } = req.body;
     const user = await User.findOne({ where: { phone } });
@@ -151,7 +202,6 @@ router.put('/brand', async (req, res) => {
     console.log(data); 
     data.forEach(async (item) => {  
     const { type, brand, carmodel, brand_value, base_price } = item;
-    console.log(item);
     let brands = await Brand.create({
       type:type,
       brand:brand,
@@ -159,6 +209,24 @@ router.put('/brand', async (req, res) => {
       brand_value:brand_value,
       base_price:base_price
     });
+    let cars = await Car.findAll({
+      where: {
+        type: brands.type,
+        brand: brands.brand,
+        carmodel: brands.carmodel,
+      },
+    });
+    cars.forEach(async (car) => {
+      const carAdditional = await CarAdditional.findOne({ where: { carid: car.carid } });
+      const costperhr = await pricing(car, carAdditional);
+      console.log(costperhr);
+      console.log(car);
+      console.log(carAdditional);
+      await Pricing.update(
+        { costperhr: costperhr },
+        { where: { carid:car.carid } }
+      );
+    });  
     createdBrands.push(brands);
     }); 
     res.status(200).json({ message: 'Car Brand and Value added successfully', createdBrands });
@@ -178,13 +246,29 @@ router.get('/brand', async (req, res) => {
 });
 router.put('/update_brand', async (req, res) => {
 try{  
-  const { id, type, brand, carmodel, brand_value, base_price } = req.body;
-  let brands = await Brand.update({
+  const { id, brand_value, base_price } = req.body;
+  await Brand.update({
     brand_value:brand_value,
     base_price:base_price
   },
   { where: { id:id } }
   );
+  let brands = await Brand.findOne({ where: { id: id } });
+  let cars = await Car.findAll({
+    where: {
+      type: brands.type,
+      brand: brands.brand,
+      carmodel: brands.carmodel,
+    },
+  });
+  cars.forEach(async (car) => {
+    const carAdditional = await CarAdditional.findOne({ where: { carid: car.carid } });
+    const costperhr = await pricing(car, carAdditional);
+    await Pricing.update(
+      { costperhr: costperhr },
+      { where: { carid:car.carid } }
+    );
+  });
   res.status(200).json({ message: 'Car Brand and Value updated successfully', brands });
 } catch (error) {
   console.log(error);

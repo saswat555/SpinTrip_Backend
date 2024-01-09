@@ -31,7 +31,6 @@ const pricing = async ( car, carAdditional ) => {
     else{
       val = ( currentYear - car.Registrationyear.substring(0, 4) )* 1.5;
     }
-    console.log(carAdditional.HorsePower);
     if( ( carAdditional.HorsePower <= 80 ) || ( !carAdditional.HorsePower ) ){
       horsePower = 0;
     }
@@ -41,7 +40,6 @@ const pricing = async ( car, carAdditional ) => {
     else{
       horsePower = 30;
     }
-    console.log(carAdditional.Transmission);
     const Price = 
       brand_value +
       horsePower +
@@ -168,9 +166,13 @@ router.post('/car', async (req, res) => {
     carhostid,
     timestamp 
     })
-    const carAdditional = CarAdditional.create({ carid: car.carid })
+    await CarAdditional.create({ carid: car.carid });
+    const carAdditional = await CarAdditional.findOne({
+      where: {
+        carid: car.carid,
+      }
+    });  
     const costperhr = await pricing( car, carAdditional );
-    console.log(costperhr);
     const Price = await Pricing.findOne({ where:{ carid: car.carid }});
     let price;
     if(Price){
@@ -200,7 +202,7 @@ router.post('/car', async (req, res) => {
   }
 });
 
-router.post('/carAdditional', async (req, res) => {
+router.put('/carAdditional', async (req, res) => {
 
   try {
     const { carid,
@@ -209,51 +211,58 @@ router.post('/carAdditional', async (req, res) => {
       Musicsystem,
       Autowindow,
       Sunroof,
-      touchScreen,
+      Touchscreen,
       Sevenseater,
       Reversecamera,
-      Airbags,
       Transmission,
+      Airbags,
       FuelType,
       Additionalinfo
       } = req.body;
-        
-    const carAdditional =await CarAdditional.update({
-      HorsePower,
-      AC,
-      Musicsystem,
-      Autowindow,
-      Sunroof,
-      touchScreen,
-      Sevenseater,
-      Reversecamera,
-      Transmission,
-      Airbags,
-      FuelType,
-      Additionalinfo
+    const car = await Car.findOne({ where:{carid:carid}} )
+    if(!car){
+      res.status(400).json({ message: 'Car not found' });
+    }
+    else{  
+    await CarAdditional.update({
+      HorsePower: HorsePower,
+      AC: AC,
+      Musicsystem: Musicsystem,
+      Autowindow: Autowindow,
+      Sunroof: Sunroof,
+      Touchscreen: Touchscreen,
+      Sevenseater: Sevenseater,
+      Reversecamera: Reversecamera,
+      Transmission: Transmission,
+      Airbags: Airbags,
+      FuelType: FuelType,
+      Additionalinfo: Additionalinfo
     },
     { where: { carid: carid } });
-    
-    const car = await Car.findOne({ where:{carid:carid}} )
+    const carAdditional = await CarAdditional.findOne({
+      where: {
+        carid: carid,
+      }
+    });  
     const costperhr = await pricing( car, carAdditional );
-    const Price = await Pricing.findOne({ where:{carid: carid}})
-    let price;
+    const Price = await Pricing.findOne({ where:{ carid: carid }})
+    let price1;
     if(Price){
-      price = await Pricing.update(
+      price1 = await Pricing.update(
        { costperhr: costperhr },
        { where:{ 
           carid:carid
         }}
-        )
+        );
     }
     else{
-      price = await Pricing.create({
+      price1 = await Pricing.create({
       costperhr,
       carid,
-      })
+      });
     }  
     res.status(201).json({ message: 'Car Additional added', carAdditional });
-
+  }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error Adding car Addtional Details' });
@@ -354,8 +363,7 @@ router.put('/listing', authenticate, async (req, res) => {
       pausetime_end_date:pausetime_end_date,
       pausetime_start_time:pausetime_start_time,
       pausetime_end_time:pausetime_end_time,
-      hourcount:hourcount
-      
+      hourcount:hourcount 
     });
 
     res.status(200).json({ message: 'Listing updated successfully', updatedListing: listing });
@@ -442,7 +450,15 @@ router.post('/rating', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
+router.post('/getCarAdditional', async (req, res) => {
+  const { carid } = req.body;
+  const carAdditional = await CarAdditional.findOne({
+    where: {
+      carid: carid,
+    }
+  });
+  res.status(200).json({ "message": "Car Additional data", carAdditional })
+});
 
 module.exports = router;
 

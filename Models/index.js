@@ -34,13 +34,14 @@
   db.Pricing = require('./pricingModel')(sequelize, DataTypes);
   // Set up associations
   const associateModels = () => {
-    const { User, Admin, Car, Host, UserAdditional, Booking, Listing, CarAdditional } = sequelize.models;
+    const { User, Admin, Car, Host, UserAdditional, Booking, Listing, CarAdditional, Pricing } = sequelize.models;
 
     
     Host.belongsTo(User, { foreignKey: 'id' });
     Admin.belongsTo(User, { foreignKey: 'id'});
     UserAdditional.belongsTo(User, {foreignKey: 'id'});
     CarAdditional.belongsTo(Car, {foreignKey: 'carid'});
+    Pricing.belongsTo(Car, {foreignKey: 'carid'});
     Car.belongsTo(Host, { foreignKey: 'carid'});
     Booking.hasOne(User);
     Booking.hasOne(Car);
