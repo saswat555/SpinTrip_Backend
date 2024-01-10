@@ -51,7 +51,7 @@ const pricing = async ( car, carAdditional ) => {
       2 * (carAdditional.Reversecamera? 1 : 0) +
       3 * (carAdditional.Transmission? 1 : 0) +
       10 * (carAdditional.FuelType? 1 : 0) +
-      2 *  (carAdditional.Airbags? 1 : 0) +
+      2 *  (carAdditional.Airbags? 1 : 0) -
       val + base_price;  
     return Price;  
   } catch (error) {
