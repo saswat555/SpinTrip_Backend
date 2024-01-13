@@ -40,21 +40,33 @@ const pricing = async ( car, carAdditional ) => {
     else{
       horsePower = 30;
     }
-    const Price = 
-      brand_value +
-      horsePower +
-      3 * ( carAdditional.AC? 1 : 0 ) +
-      3 * (carAdditional.Musicsystem? 1 : 0) +
-      2 * (carAdditional.Autowindow? 1 : 0) +
-      2 * (carAdditional.Sunroof? 1 : 0) +
-      2 * (carAdditional.touchScreen? 1 : 0)  +
-      15 * (carAdditional.Sevenseater? 1 : 0) +
-      2 * (carAdditional.Reversecamera? 1 : 0) +
-      3 * (carAdditional.Transmission? 1 : 0) +
-      10 * (carAdditional.FuelType? 1 : 0) +
-      2 *  (carAdditional.Airbags? 1 : 0) -
-      val + base_price;  
+    let Price;
+    let Sevenseater;
+    if(car.type === 'SUV'){
+      Sevenseater = 30;
+    }
+    else{
+      Sevenseater = 15;
+    }
+    if(car.type === 'Hatchback')
+    {
+    Price = brand_value + horsePower +
+      3 * ( carAdditional.AC? 1 : 0 ) +  3 * (carAdditional.Musicsystem? 1 : 0) +  2 * (carAdditional.Autowindow? 1 : 0) +
+      2 * (carAdditional.Sunroof? 1 : 0) +  2 * (carAdditional.touchScreen? 1 : 0)  +  15 * (carAdditional.Sevenseater? 1 : 0) +
+      2 * (carAdditional.Reversecamera? 1 : 0) +  3 * (carAdditional.Transmission? 1 : 0) +  10 * (carAdditional.FuelType? 1 : 0) +
+      2 *  (carAdditional.Airbags? 1 : 0) -  val + base_price;  
     return Price;  
+    }
+    else 
+    {
+      Price = brand_value + horsePower +
+      5 * ( carAdditional.AC? 1 : 0 ) +  5 * (carAdditional.Musicsystem? 1 : 0) +  2 * (carAdditional.Autowindow? 1 : 0) +
+      2 * (carAdditional.Sunroof? 1 : 0) +  2 * (carAdditional.touchScreen? 1 : 0)  +  Sevenseater * (carAdditional.Sevenseater? 1 : 0) +
+      2 * (carAdditional.Reversecamera? 1 : 0) +  5 * (carAdditional.Transmission? 1 : 0) +  10 * (carAdditional.FuelType? 1 : 0) +
+      2 *  (carAdditional.Airbags? 1 : 0) -  val + base_price;  
+    return Price; 
+    }
+
   } catch (error) {
     console.error(error);
   }
