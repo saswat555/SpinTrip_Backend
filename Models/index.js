@@ -3,7 +3,7 @@
   // Database connection with the dialect of PostgreSQL specifying the database we are using
   // Port for my database is 5432
   // Database name is database_development
-  const sequelize = new Sequelize(`postgres://postgres:1234@localhost:5432/database_development`, {
+  const sequelize = new Sequelize(`postgres://postgres:mysecretpassword@172.17.0.5:5432/database_development`, {
     dialect: 'postgres',
   });
 
