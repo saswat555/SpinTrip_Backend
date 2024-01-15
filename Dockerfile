@@ -5,7 +5,7 @@ FROM node:18
 WORKDIR /usr/src/app
 
 # Copy package.json and package-lock.json to the working directory
-COPY https://raw.githubusercontent.com/saswat555/SpinTrip_Backend/main/package.json ./
+RUN git clone https://github.com/saswat555/SpinTrip_Backend/blob/main/package.json
 
 # Install app dependencies with verbose log level and ignore optional dependencies
 RUN npm i --loglevel verbose --no-optional
