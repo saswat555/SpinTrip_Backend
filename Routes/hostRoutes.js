@@ -5,7 +5,33 @@ const { authenticate } = require('../Middleware/authMiddleware');
 const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand } = require('../Models');
 const { and, TIME } = require('sequelize');
 const { sendOTP, generateOTP } = require('../Controller/hostController');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const client = require('solr-client'); // Adjust the path to your Solr client
+const solrClient = client.createClient({
+  host: '127.0.0.1', // Use IPv4 localhost address
+  port: 8983,
+  core: 'hosts',
+  path: '/solr'
+});
 
+const carImageStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const carId = req.body.carid; 
+        const uploadPath = path.join(__dirname, '../uploads/host', 'CarAdditional', carId);
+        fs.mkdirSync(uploadPath, { recursive: true });
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        const imageNumber = file.fieldname.split('-')[1]; // Assuming fieldname like 'image-1'
+        cb(null, `image-${imageNumber}${path.extname(file.originalname)}`);
+    }
+});
+
+const uploadCarImages = multer({ storage: carImageStorage }).fields(
+    Array.from({ length: 5 }, (_, i) => ({ name: `image-${i + 1}` }))
+);
 const router = express.Router();
 const pricing = async ( car, carAdditional ) => {
   try {
@@ -31,7 +57,6 @@ const pricing = async ( car, carAdditional ) => {
     else{
       val = ( currentYear - car.Registrationyear.substring(0, 4) )* 1.5;
     }
-    console.log(carAdditional.HorsePower);
     if( ( carAdditional.HorsePower <= 80 ) || ( !carAdditional.HorsePower ) ){
       horsePower = 0;
     }
@@ -41,22 +66,33 @@ const pricing = async ( car, carAdditional ) => {
     else{
       horsePower = 30;
     }
-    console.log(carAdditional.Transmission);
-    const Price = 
-      brand_value +
-      horsePower +
-      3 * ( carAdditional.AC? 1 : 0 ) +
-      3 * (carAdditional.Musicsystem? 1 : 0) +
-      2 * (carAdditional.Autowindow? 1 : 0) +
-      2 * (carAdditional.Sunroof? 1 : 0) +
-      2 * (carAdditional.touchScreen? 1 : 0)  +
-      15 * (carAdditional.Sevenseater? 1 : 0) +
-      2 * (carAdditional.Reversecamera? 1 : 0) +
-      3 * (carAdditional.Transmission? 1 : 0) +
-      10 * (carAdditional.FuelType? 1 : 0) +
-      2 *  (carAdditional.Airbags? 1 : 0) +
-      val + base_price;  
+    let Price;
+    let Sevenseater;
+    if(car.type === 'SUV'){
+      Sevenseater = 30;
+    }
+    else{
+      Sevenseater = 15;
+    }
+    if(car.type === 'Hatchback')
+    {
+    Price = brand_value + horsePower +
+      3 * ( carAdditional.AC? 1 : 0 ) +  3 * (carAdditional.Musicsystem? 1 : 0) +  2 * (carAdditional.Autowindow? 1 : 0) +
+      2 * (carAdditional.Sunroof? 1 : 0) +  2 * (carAdditional.touchScreen? 1 : 0)  +  15 * (carAdditional.Sevenseater? 1 : 0) +
+      2 * (carAdditional.Reversecamera? 1 : 0) +  3 * (carAdditional.Transmission? 1 : 0) +  10 * (carAdditional.FuelType? 1 : 0) +
+      2 *  (carAdditional.Airbags? 1 : 0) -  val + base_price;  
     return Price;  
+    }
+    else 
+    {
+      Price = brand_value + horsePower +
+      5 * ( carAdditional.AC? 1 : 0 ) +  5 * (carAdditional.Musicsystem? 1 : 0) +  2 * (carAdditional.Autowindow? 1 : 0) +
+      2 * (carAdditional.Sunroof? 1 : 0) +  2 * (carAdditional.touchScreen? 1 : 0)  +  Sevenseater * (carAdditional.Sevenseater? 1 : 0) +
+      2 * (carAdditional.Reversecamera? 1 : 0) +  5 * (carAdditional.Transmission? 1 : 0) +  10 * (carAdditional.FuelType? 1 : 0) +
+      2 *  (carAdditional.Airbags? 1 : 0) -  val + base_price;  
+    return Price; 
+    }
+
   } catch (error) {
     console.error(error);
   }
@@ -168,9 +204,13 @@ router.post('/car', async (req, res) => {
     carhostid,
     timestamp 
     })
-    const carAdditional = CarAdditional.create({ carid: car.carid })
+    await CarAdditional.create({ carid: car.carid });
+    const carAdditional = await CarAdditional.findOne({
+      where: {
+        carid: car.carid,
+      }
+    });  
     const costperhr = await pricing( car, carAdditional );
-    console.log(costperhr);
     const Price = await Pricing.findOne({ where:{ carid: car.carid }});
     let price;
     if(Price){
@@ -199,8 +239,33 @@ router.post('/car', async (req, res) => {
     res.status(500).json({ message: 'Error Adding car' });
   }
 });
+async function indexCarImagesInSolr(carId, files) {
+  try {
 
-router.post('/carAdditional', async (req, res) => {
+      // Prepare the documents for Solr
+      const solrDocs = files.map(file => ({
+          id: `${carId}_${file.filename}`,
+          carId: carId,
+          imagePath: file.path,
+          // You can add more fields if needed
+      }));
+
+      // Add documents to Solr
+      solrClient.add(solrDocs, function(err, solrResponse) {
+          if (err) {
+              console.error('Error updating documents in Solr:', err);
+              throw err;
+          } else {
+              // Optionally commit the changes
+              solrClient.commit();
+          }
+      });
+  } catch (error) {
+      console.error('Error in indexCarImagesInSolr:', error);
+      throw error;
+  }
+}
+router.put('/carAdditional', uploadCarImages, async (req, res) => {
 
   try {
     const { carid,
@@ -209,51 +274,68 @@ router.post('/carAdditional', async (req, res) => {
       Musicsystem,
       Autowindow,
       Sunroof,
-      touchScreen,
+      Touchscreen,
       Sevenseater,
       Reversecamera,
-      Airbags,
       Transmission,
+      Airbags,
       FuelType,
       Additionalinfo
       } = req.body;
-        
-    const carAdditional =await CarAdditional.update({
-      HorsePower,
-      AC,
-      Musicsystem,
-      Autowindow,
-      Sunroof,
-      touchScreen,
-      Sevenseater,
-      Reversecamera,
-      Transmission,
-      Airbags,
-      FuelType,
-      Additionalinfo
+    const car = await Car.findOne({ where:{carid:carid}} )
+    if(!car){
+      res.status(400).json({ message: 'Car not found' });
+    }
+    else{  
+    await CarAdditional.update({
+      HorsePower: HorsePower,
+      AC: AC,
+      Musicsystem: Musicsystem,
+      Autowindow: Autowindow,
+      Sunroof: Sunroof,
+      Touchscreen: Touchscreen,
+      Sevenseater: Sevenseater,
+      Reversecamera: Reversecamera,
+      Transmission: Transmission,
+      Airbags: Airbags,
+      FuelType: FuelType,
+      Additionalinfo: Additionalinfo
     },
     { where: { carid: carid } });
-    
-    const car = await Car.findOne({ where:{carid:carid}} )
+    const carAdditional = await CarAdditional.findOne({
+      where: {
+        carid: carid,
+      }
+    });  
+    let files = [];
+    for (let i = 1; i <= 5; i++) {
+        if (req.files[`image-${i}`]) {
+            files.push(req.files[`image-${i}`][0]);
+        }
+    }
+    if (files.length > 0) {
+      // Call function to handle indexing in Solr
+      await indexCarImagesInSolr(carid, files);
+  }
     const costperhr = await pricing( car, carAdditional );
-    const Price = await Pricing.findOne({ where:{carid: carid}})
-    let price;
+    const Price = await Pricing.findOne({ where:{ carid: carid }})
+    let price1;
     if(Price){
-      price = await Pricing.update(
+      price1 = await Pricing.update(
        { costperhr: costperhr },
        { where:{ 
           carid:carid
         }}
-        )
+        );
     }
     else{
-      price = await Pricing.create({
+      price1 = await Pricing.create({
       costperhr,
       carid,
-      })
+      });
     }  
     res.status(201).json({ message: 'Car Additional added', carAdditional });
-
+  }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error Adding car Addtional Details' });
@@ -354,8 +436,7 @@ router.put('/listing', authenticate, async (req, res) => {
       pausetime_end_date:pausetime_end_date,
       pausetime_start_time:pausetime_start_time,
       pausetime_end_time:pausetime_end_time,
-      hourcount:hourcount
-      
+      hourcount:hourcount 
     });
 
     res.status(200).json({ message: 'Listing updated successfully', updatedListing: listing });
@@ -442,7 +523,15 @@ router.post('/rating', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
+router.post('/getCarAdditional', async (req, res) => {
+  const { carid } = req.body;
+  const carAdditional = await CarAdditional.findOne({
+    where: {
+      carid: carid,
+    }
+  });
+  res.status(200).json({ "message": "Car Additional data", carAdditional })
+});
 
 module.exports = router;
 

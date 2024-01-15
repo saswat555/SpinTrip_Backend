@@ -25,7 +25,8 @@
     "pg": "^8.7.3",
     "pg-hstore": "^2.3.4",
     "razorpay": "^2.0.0",
-    "sequelize": "^6.19.0"
+    "sequelize": "^6.19.0",
+    "solr-client": "^0.10.0-rc10"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
