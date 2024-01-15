@@ -58,6 +58,7 @@ router.post('/verify-otp', async (req, res) => {
 
 //Profile
 
+
 router.get('/profile', authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -66,15 +67,45 @@ router.get('/profile', authenticate, async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    const additionalinfo = await UserAdditional.findByPk(userId)
-    // You can include more fields as per your User model
-    res.json({ phone: user.phone, role: user.id, additionalinfo: additionalinfo });
+
+    const additionalInfo = await UserAdditional.findByPk(userId);
+
+    // Check if a folder exists for the user in the uploads directory
+    const userFolder = path.join('./uploads', String(userId));
+
+    // List all files in the user's folder
+    const files = fs.readdirSync(userFolder);
+
+    if(files){
+
+    // Filter and create URLs for Aadhar and DL files
+    const aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `http://spintrip.in/uploads/${userId}/${file}`);
+    const dlFile = files.filter(file => file.includes('dlFile')).map(file => `http://spintrip.in/uploads/${userId}/${file}`);
+
+    res.json({
+      phone: user.phone,
+      role: user.role,
+      additionalInfo,
+      aadharFile,
+      dlFile
+    });
+  }
+  else {
+    
+    res.json({
+      phone: user.phone,
+      role: user.role,
+      additionalInfo,
+
+    });
+  }
 
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 //Add Profile
 router.post('/test-upload', upload.single('testFile'), (req, res) => {
