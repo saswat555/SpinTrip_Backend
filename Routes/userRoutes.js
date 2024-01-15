@@ -133,13 +133,13 @@ router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCou
     }
 
     // Update additional user information
-    const { DlVerification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data } = req.body;
+    const { Dlverification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data } = req.body;
     const {dlFile,aadharFile} = req.files;
     if(dlFile || aadharFile){
     
     await UserAdditional.update({
       id:userId,
-      DlVerification:DlVerification,
+      Dlverification:Dlverification,
       FullName:FullName,
       AadharVfid:AadharVfid,
       Address:Address,
