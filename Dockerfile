@@ -5,14 +5,14 @@ FROM node:18
 WORKDIR /usr/src/app
 
 # Copy package.json and package-lock.json to the working directory
-COPY package*.json ./
+COPY https://raw.githubusercontent.com/saswat555/SpinTrip_Backend/main/package.json ./
 
 # Install app dependencies with verbose log level and ignore optional dependencies
-RUN npm install --force --loglevel verbose --no-optional
+RUN npm i --loglevel verbose --no-optional
 
 # Copy the application code into the container
 # We use a .dockerignore file to exclude node_modules
-COPY . .
+RUN git clone https://github.com/saswat555/SpinTrip_Backend.git
 
 # Expose the port your app runs on
 EXPOSE 2000
