@@ -103,9 +103,34 @@ router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCou
 
     // Update additional user information
     const { DlVerification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data } = req.body;
+    const {dlFile,aadharFile} = req.files;
+    if(dlFile || aadharFile){
+    
     await UserAdditional.update({
-      DlVerification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data
+      id:userId,
+      DlVerification:DlVerification,
+      FullName:FullName,
+      AadharVfid:AadharVfid,
+      Address:Address,
+      CurrentAddressVfid:CurrentAddressVfid,
+      ml_data:ml_data, 
+      dl:dlFile[0].destination,
+      aadhar:aadharFile[0].destination
     }, { where: { id: userId } });
+
+
+  }
+  else {
+    await UserAdditional.update({
+      id:userId,
+      DlVerification:DlVerification,
+      FullName:FullName,
+      AadharVfid:AadharVfid,
+      Address:Address,
+      CurrentAddressVfid:CurrentAddressVfid,
+      ml_data:ml_data
+    }, { where: { id: userId } });
+  }
 
     res.status(200).json({ message: 'Profile Updated successfully' });
   } catch (error) {

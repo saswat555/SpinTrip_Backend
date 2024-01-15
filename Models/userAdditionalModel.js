@@ -2,13 +2,13 @@ module.exports = (sequelize, DataTypes) => {
     const UserAdditional = sequelize.define("UserAdditional", {
       id: { type: DataTypes.INTEGER, primaryKey: true },
       Dlverifiaction: DataTypes.INTEGER,
-      timestamp: DataTypes.DATE,
       FullName: DataTypes.STRING(100),
-      AadharVfid: { type: DataTypes.INTEGER, unique: true },
+      AadharVfid: DataTypes.INTEGER,
       Address: DataTypes.TEXT,
       CurrentAddressVfid: { type: DataTypes.INTEGER, unique: true },
-      status: DataTypes.STRING,
       ml_data: DataTypes.BLOB,
+      dl: DataTypes.STRING,
+      aadhar: DataTypes.STRING
 
     });
  
