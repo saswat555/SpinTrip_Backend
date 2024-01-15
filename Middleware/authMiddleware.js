@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { User, Host, Admin } = require('../Models'); // Adjust the path if needed
+const { response } = require('express');
 
 const generateToken = (user) => {
   return jwt.sign({ id: user.id, role: user.role }, 'your_secret_key');
@@ -9,13 +10,18 @@ const generateToken = (user) => {
 const authenticate = async (req, res, next) => {
   if(req.header('token'))
   {
+    try{
     token = req.header('token');
     const decodedToken = jwt.verify(token, 'your_secret_key');
     let user = await User.findOne({ where: { id:decodedToken.id } });
     req.user = { ...user.dataValues, userid:user.id };
-    console.log("user is logged in")
-    next();
+    console.log("User is logged in")
+    next();}
+    catch(error){
+      return res("Invalid token")
+    }
   }
+  
   else {
   const { phone, password } = req.body;
 

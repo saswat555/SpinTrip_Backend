@@ -3,14 +3,29 @@ const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
 const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing } = require('../Models');
-const { sendOTP, generateOTP, razorpay, client } = require('../Controller/userController');
+const { sendOTP, generateOTP, razorpay, createIndex } = require('../Controller/userController');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
 const multer = require('multer');
-
+const path = require('path');
 const router = express.Router();
-const upload = multer({ dest: './uploads' });
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const userId = req.user.id; // Assuming req.user.id contains the user ID
+    const uploadPath = path.join(__dirname, '../uploads', userId.toString());
+    fs.mkdirSync(uploadPath, { recursive: true }); // Ensure directory exists
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    // Use field name as file name
+    let filename = file.fieldname + path.extname(file.originalname);
+    cb(null, filename);
+  }
+});
+const fs = require('fs');
 
+
+const upload = multer({ storage: storage });
 //Login
 router.post('/login', async (req, res) => {
   const { phone } = req.body;
@@ -62,62 +77,43 @@ router.get('/profile', authenticate, async (req, res) => {
 });
 
 //Add Profile
+router.post('/test-upload', upload.single('testFile'), (req, res) => {
+  console.log(req.file);
+  res.send('File upload received');
+});
+
 
 router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCount: 1 }, { name: 'dlFile', maxCount: 1 }]), async (req, res) => {
   try {
     const userId = req.user.id;
+    const userRole = req.user.role; // Assuming role is part of the user object
     const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    const additionalinfo = await UserAdditional.findByPk(userId);
-    const { id, DlVerification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data } = req.body;
-    let aadhar,dl;
-    if (req.files && req.files.aadharFile) {
-      aadhar = req.files.aadharFile[0].path;
-    }
     
-    if (req.files && req.files.dlFile) {
-      dl = req.files.dlFile[0].path;
+    let files = [];
+    if(req.files){
+    if (req.files['aadharFile']) files.push(req.files['aadharFile'][0]);
+    if (req.files['dlFile']) files.push(req.files['dlFile'][0]);
     }
-    if(dl && aadhar){
-      await client.index({
-        index: 'profiles',
-        id: userId,
-        body: {
-          aadharFilePath: aadhar,
-          dlFilePath: dl,
-        },
-      });
-      await additionalinfo.update({
-        id: id,
-        DlVerification: DlVerification,
-        FullName: FullName,
-        AadharVfid: AadharVfid,
-        Address: Address,
-        CurrentAddressVfid: CurrentAddressVfid,
-        status: 'Pending',
-        ml_data: ml_data, 
-      })
-      }
-      else{
-      await additionalinfo.update({
-        id: id,
-        DlVerification: DlVerification,
-        FullName: FullName,
-        AadharVfid: AadharVfid,
-        Address: Address,
-        CurrentAddressVfid: CurrentAddressVfid,
-        ml_data: ml_data
-      })
-      }
-    res.status(200).json({ message: 'Profile Updated successfully', updatedProfile: UserAdditional })
-  }
-  catch (error) {
+    if (files.length > 0) {
+      await createIndex(userId, files, userRole); // Index files and save them
+    }
+
+    // Update additional user information
+    const { DlVerification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data } = req.body;
+    await UserAdditional.update({
+      DlVerification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data
+    }, { where: { id: userId } });
+
+    res.status(200).json({ message: 'Profile Updated successfully' });
+  } catch (error) {
     console.log(error);
-    res.status(500).json({ message: 'Error updating profile', error: error })
+    res.status(500).json({ message: 'Error updating profile', error: error });
   }
 });
+
 
 //Signup
 router.post('/signup', async (req, res) => {
@@ -514,9 +510,9 @@ router.post('/booking', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
     }
     try {
-      let cph = await Pricing.findOne({where:{carid:carid}})
-      let hours = calculateTripHours( startDate ,endDate, startTime, endTime );
-      let amount = cph.costperhr*hours;
+      let cph = await Pricing.findOne({ where: { carid: carid } })
+      let hours = calculateTripHours(startDate, endDate, startTime, endTime);
+      let amount = cph.costperhr * hours;
       let booking = await Booking.create({
         carid: carid,
         startTripDate: startDate,

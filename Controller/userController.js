@@ -2,10 +2,16 @@
 const bcrypt = require("bcrypt");
 const db = require("../Models");
 const jwt = require("jsonwebtoken");
+const axios = require('axios');
 const Razorpay = require('razorpay');
-const { Client } = require('@elastic/elasticsearch');
+const client = require('solr-client'); // Adjust the path to your Solr client
+const solrClient = client.createClient({
+  host: '127.0.0.1', // Use IPv4 localhost address
+  port: 8983,
+  core: 'users',
+  path: '/solr'
+});
 
-// Assigning users to the variable User
 const User = db.users;
 const sendOTP = (phone, otp) => {
   console.log(`Sending OTP ${otp} to phone number ${phone}`);
@@ -93,32 +99,37 @@ const razorpay = new Razorpay({
   key_secret: 'RAZORPAY_KEY_SECRET',
 });
 
-async function createIndex() {
+
+async function createIndex(userId, files) {
   try {
-    const response = await client.indices.create({
-      index: 'profile',
+   
+
+      var doc = { id: userId, files: [] };
+      files.forEach((file, index) => {
+        doc[`fileName_${index}`] = file.filename;
+        doc[`filePath_${index}`] = file.path;
     });
 
-    console.log('Index created successfully:', response.body);
+      solrClient.add(doc, function(err, solrResponse) {
+          if (err) {
+              console.error('Error adding document to Solr:', err);
+              throw err;
+          } else {
+              solrClient.commit(); // Commit changes
+              console.log(solrResponse)
+          }
+      });
   } catch (error) {
-    console.error('Error creating index:', error.message);
+      console.error('Error in createIndex:', error);
+      throw error; // Rethrow error for the caller to handle
   }
 }
-const client = new Client({
-  node: 'https://localhost:9200',
-  auth: {
-    username: 'elastic',
-    password: 'JYkoUkHnVXcmtRX_CBBI',
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-});
+
 module.exports = {
  signup,
  login,
  generateOTP,
  sendOTP,
  razorpay,
- client
+ createIndex
 }
