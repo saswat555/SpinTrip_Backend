@@ -6,9 +6,9 @@ const axios = require('axios');
 const Razorpay = require('razorpay');
 const client = require('solr-client'); // Adjust the path to your Solr client
 const solrClient = client.createClient({
-  host: '127.0.0.1', // Use IPv4 localhost address
-  port: 8983,
-  core: 'users',
+  host: process.env.SOLR_HOST,
+  port: process.env.SOLR_PORT,
+  core: process.env.SOLR_CORE_USER, // Use appropriate core based on context
   path: '/solr'
 });
 

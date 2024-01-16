@@ -10,11 +10,12 @@ const fs = require('fs');
 const path = require('path');
 const client = require('solr-client'); // Adjust the path to your Solr client
 const solrClient = client.createClient({
-  host: '127.0.0.1', // Use IPv4 localhost address
-  port: 8983,
-  core: 'hosts',
+  host: process.env.SOLR_HOST,
+  port: process.env.SOLR_PORT,
+  core: process.env.SOLR_CORE_HOST, // Use appropriate core based on context
   path: '/solr'
 });
+
 
 const carImageStorage = multer.diskStorage({
     destination: function (req, file, cb) {
