@@ -1,6 +1,10 @@
 version: '3.8'
 services:
   app:
-    build: .
+    image: spintrip-backend:6.0
     ports:
       - "2000:2000"
+    # other configurations for app service...
+  db:
+    image: postgres:16
+    # other configurations for db service...

@@ -3,9 +3,18 @@
   // Database connection with the dialect of PostgreSQL specifying the database we are using
   // Port for my database is 5432
   // Database name is database_development
-  const sequelize = new Sequelize(`postgres://postgres:mysecretpassword@172.17.0.5:5432/database_development`, {
+  require('dotenv').config();
+
+  const DB_HOST = process.env.DB_HOST;
+  const DB_USER = process.env.DB_USER;
+  const DB_PASSWORD = process.env.DB_PASSWORD;
+  const DB_PORT = process.env.DB_PORT;
+  const DB_NAME = process.env.DB_NAME;
+  
+  const sequelize = new Sequelize(`postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}`, {
     dialect: 'postgres',
   });
+  
 
 
   // Checking if connection is established
