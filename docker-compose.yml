@@ -1,8 +1,7 @@
 version: '3.8'
 services:
   app:
-
-    build: .
+    image: spintrip555/spintrip-backend:7.0
     ports:
       - "2000:2000"
     environment:
@@ -13,9 +12,10 @@ services:
       - DB_NAME=mydatabase
     depends_on:
       - db
-    volumes:
-      - .:/usr/src/app
-      - /usr/src/app/node_modules
+    # Only include volumes if you need to mount data into the container
+    # volumes:
+    #   - .:/usr/src/app
+    #   - /usr/src/app/node_modules
 
   db:
     image: postgres:16
