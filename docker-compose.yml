@@ -1,10 +1,30 @@
 version: '3.8'
 services:
   app:
-    image: spintrip-backend:6.0
+
+    build: .
     ports:
       - "2000:2000"
-    # other configurations for app service...
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=1234
+      - DB_PORT=5432
+      - DB_NAME=mydatabase
+    depends_on:
+      - db
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+
   db:
     image: postgres:16
-    # other configurations for db service...
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_DB=mydatabase
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
