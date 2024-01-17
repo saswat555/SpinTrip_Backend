@@ -71,11 +71,11 @@ router.get('/profile', authenticate, async (req, res) => {
     const additionalInfo = await UserAdditional.findByPk(userId);
 
     // Check if a folder exists for the user in the uploads directory
+ 
     const userFolder = path.join('./uploads', String(userId));
-
+    if (fs.existsSync(userFolder)){
     // List all files in the user's folder
     const files = fs.readdirSync(userFolder);
-
     if(files){
 
     // Filter and create URLs for Aadhar and DL files
@@ -89,7 +89,17 @@ router.get('/profile', authenticate, async (req, res) => {
       aadharFile,
       dlFile
     });
-  }
+    }
+   else {
+    
+    res.json({
+      phone: user.phone,
+      role: user.role,
+      additionalInfo,
+
+    });
+   }
+   }
   else {
     
     res.json({
@@ -207,7 +217,21 @@ router.post('/signup', async (req, res) => {
 //Get All Cars
 router.get('/cars', async (req, res) => {
   const cars = await Car.findAll();
-  res.status(200).json({ "message": "All available cars", cars })
+  const pricingPromises = cars.map(async (car) => {
+    const cph = await Pricing.findOne({ where: { carid: car.carid } });
+
+    if (cph) {
+        const costperhr = cph.costperhr;
+        // Include pricing information in the car object
+        return { ...car.toJSON(), costperhr: costperhr  };
+    } else {
+        return { ...car.toJSON(), costperhr: null };
+    }
+});
+
+// Wait for all pricing calculations to complete
+const carsWithPricing = await Promise.all(pricingPromises);
+res.status(200).json({ "message": "All available cars", cars : carsWithPricing })
 })
 
 //Find Cars
@@ -336,9 +360,26 @@ router.post('/findcars', async (req, res) => {
 
     // Extract car information from the listings
     const availableCars = availableListings.map((listing) => listing.Car);
+    // Calculate pricing for each available car
+    const pricingPromises = availableCars.map(async (car) => {
+      const cph = await Pricing.findOne({ where: { carid: car.carid } });
 
-    // Respond with the available cars
-    res.status(200).json({ availableCars });
+      if (cph) {
+          const hours = calculateTripHours(startDate, endDate, startTime, endTime);
+          const amount = cph.costperhr * hours;
+          const costperhr = cph.costperhr;
+          // Include pricing information in the car object
+          return { ...car.toJSON(), pricing: { costperhr, hours , amount } };
+      } else {
+          return { ...car.toJSON(), pricing: null };
+      }
+  });
+
+  // Wait for all pricing calculations to complete
+  const carsWithPricing = await Promise.all(pricingPromises);
+
+  // Respond with the available cars including pricing information
+  res.status(200).json({ availableCars: carsWithPricing });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error finding available cars' });
@@ -486,7 +527,6 @@ router.post('/booking', authenticate, async (req, res) => {
         bookingId: { [Op.eq]: null },
       },
     });
-    console.log(listing);
     if (listing) {
       const check_booking = await Booking.findOne({
         where: {
