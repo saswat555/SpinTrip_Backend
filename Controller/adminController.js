@@ -1,7 +1,6 @@
 // Admin and Shared Utilities
 const fs = require('fs');
 const path = require('path');
-const solr = require('solr-client');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { Admin, User } = require('../Models');
@@ -24,18 +23,10 @@ const authAdmin = async (userId) => {
   }
 };
 
-// Configure Solr client
-const solrClient = solr.createClient({
-  host: process.env.SOLR_HOST,
-  port: process.env.SOLR_PORT,
-  core: process.env.SOLR_CORE_USER, // Use appropriate core based on context
-  path: '/solr'
-});
 
 
 module.exports = {
   generateOTP,
   sendOTP,
   authAdmin,
-  solrClient,
 };

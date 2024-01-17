@@ -4,13 +4,7 @@ const db = require("../Models");
 const jwt = require("jsonwebtoken");
 const axios = require('axios');
 const Razorpay = require('razorpay');
-const client = require('solr-client'); // Adjust the path to your Solr client
-const solrClient = client.createClient({
-  host: process.env.SOLR_HOST,
-  port: process.env.SOLR_PORT,
-  core: process.env.SOLR_CORE_USER, // Use appropriate core based on context
-  path: '/solr'
-});
+
 
 const User = db.users;
 const sendOTP = (phone, otp) => {

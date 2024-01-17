@@ -8,13 +8,6 @@ const { sendOTP, generateOTP } = require('../Controller/hostController');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const client = require('solr-client'); // Adjust the path to your Solr client
-const solrClient = client.createClient({
-  host: process.env.SOLR_HOST,
-  port: process.env.SOLR_PORT,
-  core: process.env.SOLR_CORE_HOST, // Use appropriate core based on context
-  path: '/solr'
-});
 
 
 const carImageStorage = multer.diskStorage({
@@ -240,32 +233,7 @@ router.post('/car', async (req, res) => {
     res.status(500).json({ message: 'Error Adding car' });
   }
 });
-async function indexCarImagesInSolr(carId, files) {
-  try {
 
-      // Prepare the documents for Solr
-      const solrDocs = files.map(file => ({
-          id: `${carId}_${file.filename}`,
-          carId: carId,
-          imagePath: file.path,
-          // You can add more fields if needed
-      }));
-
-      // Add documents to Solr
-      solrClient.add(solrDocs, function(err, solrResponse) {
-          if (err) {
-              console.error('Error updating documents in Solr:', err);
-              throw err;
-          } else {
-              // Optionally commit the changes
-              solrClient.commit();
-          }
-      });
-  } catch (error) {
-      console.error('Error in indexCarImagesInSolr:', error);
-      throw error;
-  }
-}
 router.put('/carAdditional', uploadCarImages, async (req, res) => {
 
   try {
@@ -314,10 +282,7 @@ router.put('/carAdditional', uploadCarImages, async (req, res) => {
             files.push(req.files[`image-${i}`][0]);
         }
     }
-    if (files.length > 0) {
-      // Call function to handle indexing in Solr
-      await indexCarImagesInSolr(carid, files);
-  }
+
     const costperhr = await pricing( car, carAdditional );
     const Price = await Pricing.findOne({ where:{ carid: carid }})
     let price1;

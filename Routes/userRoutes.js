@@ -3,7 +3,7 @@ const express = require('express');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
 const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing } = require('../Models');
-const { sendOTP, generateOTP, razorpay, createIndex } = require('../Controller/userController');
+const { sendOTP, generateOTP, razorpay} = require('../Controller/userController');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
 const multer = require('multer');
@@ -128,9 +128,7 @@ router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCou
     if (req.files['aadharFile']) files.push(req.files['aadharFile'][0]);
     if (req.files['dlFile']) files.push(req.files['dlFile'][0]);
     }
-    if (files.length > 0) {
-      await createIndex(userId, files, userRole); // Index files and save them
-    }
+
 
     // Update additional user information
     const { Dlverification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data } = req.body;

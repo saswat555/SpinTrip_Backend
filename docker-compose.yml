@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   app:
-    image: spintrip555/spintrip-backend:7.0
+    image: spintrip555/spintrip-backend:11.0
     ports:
       - "2000:2000"
     environment:
@@ -10,12 +10,9 @@ services:
       - DB_PASSWORD=1234
       - DB_PORT=5432
       - DB_NAME=mydatabase
+
     depends_on:
       - db
-    # Only include volumes if you need to mount data into the container
-    # volumes:
-    #   - .:/usr/src/app
-    #   - /usr/src/app/node_modules
 
   db:
     image: postgres:16
@@ -25,6 +22,9 @@ services:
       - POSTGRES_DB=mydatabase
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+
+
 
 volumes:
   pgdata:
