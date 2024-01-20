@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const uuid = require('uuid');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
 const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand } = require('../Models');
@@ -134,7 +135,8 @@ router.post('/signup', async (req, res) => {
     const salt = bcrypt.genSaltSync(10);
     // const hashedPassword = bcrypt.hashSync("my-password", salt);
     const hashedPassword =  await bcrypt.hash(password,salt);
-    const user = await User.create({ phone, password: hashedPassword });
+    const userId = uuid.v4();
+    const user = await User.create({ id: userId, phone, password: hashedPassword });
     const host = await Host.create({
       id:user.id,
       carid:null
@@ -168,7 +170,7 @@ router.get('/profile', authenticate, async (req, res) => {
 
 
 // Add Car
-router.post('/car', async (req, res) => {
+router.post('/car', authenticate, async (req, res) => {
   const { carmodel, 
     type,
     brand,
@@ -177,13 +179,13 @@ router.post('/car', async (req, res) => {
     Enginenumber,
     Registrationyear,
     bodytype,
-    carhostid,
     timestamp } = req.body;
     
   try {
-    const host = await Host.findOne({ where: { id:carhostid } });
+    const host = await Host.findByPk(req.user.id);
+    const carhostid =  req.user.id;
 
-    if (!host) {
+    if (!host ) {
       return res.status(401).json({ message: 'No Host found' });
     }
     const car =await Car.create({
@@ -234,7 +236,7 @@ router.post('/car', async (req, res) => {
   }
 });
 
-router.put('/carAdditional', uploadCarImages, async (req, res) => {
+router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => {
 
   try {
     const { carid,
@@ -489,8 +491,12 @@ router.post('/rating', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-router.post('/getCarAdditional', async (req, res) => {
-  const { carid } = req.body;
+router.post('/getCarAdditional', authenticate, async (req, res) => {
+  const { carid } = req.body;  
+  const host = await Host.findOne({ where: { id: req.user.id } });
+  if (!host) {
+    return res.status(401).json({ message: 'Unauthorised User' });
+  }
   const carAdditional = await CarAdditional.findOne({
     where: {
       carid: carid,

@@ -12,7 +12,7 @@ module.exports = (sequelize, DataTypes) => {
     timestamp: DataTypes.DATE,
     rating: DataTypes.FLOAT,
     hostId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(36),
       references: {
         model: 'Hosts', // This should match the table name for Hosts
         key: 'id'

@@ -1,5 +1,6 @@
 // userRoutes.js
 const express = require('express');
+const uuid = require('uuid');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
 const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing } = require('../Models');
@@ -151,6 +152,7 @@ router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCou
       FullName:FullName,
       AadharVfid:AadharVfid,
       Address:Address,
+      verification_status: 1,
       CurrentAddressVfid:CurrentAddressVfid,
       ml_data:ml_data, 
       dl:dlFile[0].destination,
@@ -162,7 +164,7 @@ router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCou
   else {
     await UserAdditional.update({
       id:userId,
-      DlVerification:DlVerification,
+      DlVerification:Dlverification,
       FullName:FullName,
       AadharVfid:AadharVfid,
       Address:Address,
@@ -192,15 +194,16 @@ router.post('/signup', async (req, res) => {
     // Hash the password
     const salt = bcrypt.genSaltSync(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-
+    
+    const userId = uuid.v4();
     let user;
     // Create user based on the role
     if (role === 'user') {
-      user = await User.create({ phone, password: hashedPassword });
+      user = await User.create({ id: userId, phone, password: hashedPassword });
     } else if (role === 'host') {
-      user = await Host.create({ phone, password: hashedPassword });
+      user = await Host.create({ id: userId, phone, password: hashedPassword });
     } else if (role === 'admin') {
-      user = await Admin.create({ phone, password: hashedPassword });
+      user = await Admin.create({ id: userId, phone, password: hashedPassword });
     }
 
 
@@ -215,7 +218,7 @@ router.post('/signup', async (req, res) => {
 
 
 //Get All Cars
-router.get('/cars', async (req, res) => {
+router.get('/cars', authenticate, async (req, res) => {
   const cars = await Car.findAll();
   const pricingPromises = cars.map(async (car) => {
     const cph = await Pricing.findOne({ where: { carid: car.carid } });

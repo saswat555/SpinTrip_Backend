@@ -5,7 +5,7 @@ module.exports = (sequelize, DataTypes) => {
     carid: { type: DataTypes.INTEGER},    
     time: DataTypes.DATE,
     timestamp: DataTypes.DATE,
-    id: {type: DataTypes.INTEGER},
+    id: {type: DataTypes.STRING(36)},
     status: { type: DataTypes.INTEGER,allowNull: true },
     amount: { type: DataTypes.FLOAT, allowNull: true },
     Transactionid: { type: DataTypes.STRING, unique: true },
