@@ -168,7 +168,8 @@ router.get('/profile', authenticate, async (req, res) => {
 
 
 // Add Car
-router.post('/car', async (req, res) => {
+router.post('/car',authenticate,  async (req, res) => {
+    carhostid = req.user.id;
   const { carmodel, 
     type,
     brand,
@@ -177,7 +178,6 @@ router.post('/car', async (req, res) => {
     Enginenumber,
     Registrationyear,
     bodytype,
-    carhostid,
     timestamp } = req.body;
     
   try {
