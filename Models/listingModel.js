@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true,
     },
     hostid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(36),
     },
     details: {
       type: DataTypes.STRING,

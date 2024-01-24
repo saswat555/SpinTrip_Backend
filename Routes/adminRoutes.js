@@ -3,12 +3,15 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
 const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing } = require('../Models');
+const path = require('path');
 const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
+const fs = require('fs');
 const router = express.Router();
 
 //Login
   
   router.post('/login', async (req, res) => {
+    try {
     const { phone } = req.body;
     const user = await User.findOne({ where: { phone } });
     const admin = await Admin.findOne({ where: { id: user.id } });
@@ -19,10 +22,15 @@ const router = express.Router();
     sendOTP(phone, otp);
     await user.update({otp:otp})    
     return res.json({ message: 'OTP sent successfully', redirectTo: '/verify-otp', phone, otp });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error logging in', error });
+  }
   });
 
 //Verify-Otp
   router.post('/verify-otp', async (req, res) => {
+    try {  
     const { phone, otp } = req.body;
     const user = await User.findOne({ where: { phone } })
     const fixed_otp = user.otp;
@@ -33,6 +41,10 @@ const router = express.Router();
     } else {
       return res.status(401).json({ message: 'Invalid OTP' });
     }
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Server error', error });
+  }
   });
 
 // Admin Signup
@@ -83,69 +95,138 @@ router.get('/profile', authenticate, async (req, res) => {
 });
 
 //Get All Cars
-router.get('/cars', async (req, res) => {
+router.get('/cars', authenticate, async (req, res) => {
+  try {  
+  const adminId = req.user.id;
+  const admin = await Admin.findByPk(adminId);
+
+  if (!admin) {
+    return res.status(404).json({ message: 'Admin not found' });
+  }
   const cars = await Car.findAll();
-  res.status(200).json({ "message": "All available cars", cars })
+  res.status(200).json({ "message": "All available cars", cars });
+} catch (error) {
+  console.log(error);
+  res.status(500).json({ message: 'Error fetching cars', error });
+}  
 })
 
 //Get All Bookings
-router.get('/bookings', async (req, res) => {
+router.get('/bookings', authenticate, async (req, res) => {
+  try {  
+  const adminId = req.user.id;
+  const admin = await Admin.findByPk(adminId);
+
+  if (!admin) {
+    return res.status(404).json({ message: 'Admin not found' });
+  }
   const bookings = await Booking.findAll();
-  res.status(200).json({ "message": "All available Bookings", bookings })
+  res.status(200).json({ "message": "All available Bookings", bookings });
+} catch (error) {
+  console.log(error);
+  res.status(500).json({ message: 'Error fetching bookings', error });
+}
 })
 
 //Get All Hosts
 router.get('/hosts', async (req, res) => {
+  try {  
+  const adminId = req.user.id;
+  const admin = await Admin.findByPk(adminId);
+
+  if (!admin) {
+    return res.status(404).json({ message: 'Admin not found' });
+  }
   const hosts = await Host.findAll();
-  res.status(200).json({ "message": "All available Hosts", hosts })
-})
+  res.status(200).json({ "message": "All available Hosts", hosts });
+} catch (error) {
+  console.log(error);
+  res.status(500).json({ message: 'Error fetching host', error });
+}  
+});
 
 //Get all users
 router.get('/users', async (req, res) => {
+  try {  
+  const adminId = req.user.id;
+  const admin = await Admin.findByPk(adminId);
+
+  if (!admin) {
+    return res.status(404).json({ message: 'Admin not found' });
+  }
   const users = await User.findAll();
   res.status(200).json({ "message": "All available Users", users })
-})
-router.get('/pending-verfication', async (req, res) => {
+} catch (error) {
+  console.log(error);
+  res.status(500).json({ message: 'Error fetching user', error });
+} 
+});
+router.get('/pending-verfication', authenticate, async (req, res) => {
   try {
+    const adminId = req.user.id;
+    const admin = await Admin.findByPk(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
     let pendingProfiles = await UserAdditional.findAll({
-      where: { status: 'Pending' },    
+      where: { verification_status: 1 },    
     });
     if ( pendingProfiles.length === 0 ){
         res.status(200).json({ message: 'No user approval required'});
     }
-    else{  
-    const elasticsearchQueries = pendingProfiles.map(profile => ({
-      // index: 'profiles',
-       id: profile.id.toString(), 
-    }));
-    const elasticsearchResults = await client.mget({ index: 'profiles', body: {
-      ids: elasticsearchQueries.map(query => query.id),
-    }, 
-    });
-    const combinedProfiles = pendingProfiles.map((profile, index) => ({
-      ...profile.toJSON(),
-      aadharFile: elasticsearchResults.docs[index]._source.aadharFilePath,
-      dlFile: elasticsearchResults.docs[index]._source.dlFilePath,
-    }));
-    res.status(200).json({ combinedProfiles });
+    else{ 
+      const updatedProfiles = await Promise.all(
+      pendingProfiles.map(async (item) => {
+        let id  = item.id;
+        console.log(id);
+        let userId = id;
+        let userFolder = path.join('./uploads', userId );
+        if (fs.existsSync(userFolder)){
+          // List all files in the user's folder
+          let files = fs.readdirSync(userFolder);
+          if(files){
+          // Filter and create URLs for Aadhar and DL files
+          let aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `http://spintrip.in/uploads/${userId}/${file}`);
+          let dlFile = files.filter(file => file.includes('dlFile')).map(file => `http://spintrip.in/uploads/${userId}/${file}`);  
+          console.log(aadharFile[0],dlFile);
+          return { ...item.toJSON(), aadharFile: aadharFile[0], dlFile: dlFile[0] };
+           }
+          }
+        return item.toJSON();
+      }
+      ));
+         res.status(200).json({ updatedProfiles });
     }
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: 'Error fetching pending profiles', error });
   }
-})
-router.put('/approve-profile', async (req, res) => {
+});
+router.put('/approve-profile',authenticate, async (req, res) => {
   try {
+    const adminId = req.user.id;
+    const admin = await Admin.findByPk(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
     const userId = req.body.userId;
-    await UserAdditional.update({ status: 'Approved' }, { where: { id: userId } });
+    await UserAdditional.update({ verification_status: 2 }, { where: { id: userId } });
     res.status(200).json({ message: 'Profile approved successfully' });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: 'Error approving profile', error });
   }
 });
-router.put('/brand', async (req, res) => {
+router.put('/brand', authenticate, async (req, res) => {
   try {
+    const adminId = req.user.id;
+    const admin = await Admin.findByPk(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
     const { data } = req.body;
     const createdBrands = [];
     console.log(data); 
@@ -167,8 +248,14 @@ router.put('/brand', async (req, res) => {
     res.status(500).json({ message: 'Error adding Car Brand and value', error });
   }
 });
-router.get('/brand', async (req, res) => {
+router.get('/brand', authenticate, async (req, res) => {
   try {
+    const adminId = req.user.id;
+    const admin = await Admin.findByPk(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
     const brands = await Brand.findAll();
     res.status(200).json({ "message": "All available brands", brands })
   } catch (error) {
@@ -176,9 +263,15 @@ router.get('/brand', async (req, res) => {
     res.status(500).json({ message: 'Error adding Car Brand and value', error });
   }
 });
-router.put('/update_brand', async (req, res) => {
+router.put('/update_brand', authenticate, async (req, res) => {
 try{  
   const { id, type, brand, carmodel, brand_value, base_price } = req.body;
+  const adminId = req.user.id;
+  const admin = await Admin.findByPk(adminId);
+
+  if (!admin) {
+    return res.status(404).json({ message: 'Admin not found' });
+  }
   let brands = await Brand.update({
     brand_value:brand_value,
     base_price:base_price
@@ -192,7 +285,13 @@ try{
 }
 });
 
-router.get('/pricing', async (req, res) => {
+router.get('/pricing', authenticate, async (req, res) => {
+  const adminId = req.user.id;
+  const admin = await Admin.findByPk(adminId);
+
+  if (!admin) {
+    return res.status(404).json({ message: 'Admin not found' });
+  }
   const pricing = await Pricing.findAll();
   res.status(200).json({ "message": "Car pricing asscoiated", pricing })
 });
