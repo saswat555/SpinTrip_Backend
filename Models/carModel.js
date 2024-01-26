@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
     Enginenumber: DataTypes.STRING,
     Registrationyear: DataTypes.DATEONLY,
     bodytype: DataTypes.STRING,
-    carid: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    carid: { type: DataTypes.STRING(36), primaryKey: true },
     timestamp: DataTypes.DATE,
     rating: DataTypes.FLOAT,
     hostId: {
