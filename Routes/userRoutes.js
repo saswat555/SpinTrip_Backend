@@ -4,7 +4,7 @@ const uuid = require('uuid');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
 const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing } = require('../Models');
-const { sendOTP, generateOTP, razorpay} = require('../Controller/userController');
+const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
 const multer = require('multer');
@@ -72,44 +72,44 @@ router.get('/profile', authenticate, async (req, res) => {
     const additionalInfo = await UserAdditional.findByPk(userId);
 
     // Check if a folder exists for the user in the uploads directory
- 
+
     const userFolder = path.join('./uploads', String(userId));
-    if (fs.existsSync(userFolder)){
-    // List all files in the user's folder
-    const files = fs.readdirSync(userFolder);
-    if(files){
+    if (fs.existsSync(userFolder)) {
+      // List all files in the user's folder
+      const files = fs.readdirSync(userFolder);
+      if (files) {
 
-    // Filter and create URLs for Aadhar and DL files
-    const aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `http://spintrip.in/uploads/${userId}/${file}`);
-    const dlFile = files.filter(file => file.includes('dlFile')).map(file => `http://spintrip.in/uploads/${userId}/${file}`);
+        // Filter and create URLs for Aadhar and DL files
+        const aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `http://spintrip.in/uploads/${userId}/${file}`);
+        const dlFile = files.filter(file => file.includes('dlFile')).map(file => `http://spintrip.in/uploads/${userId}/${file}`);
 
-    res.json({
-      phone: user.phone,
-      role: user.role,
-      additionalInfo,
-      aadharFile,
-      dlFile
-    });
+        res.json({
+          phone: user.phone,
+          role: user.role,
+          additionalInfo,
+          aadharFile,
+          dlFile
+        });
+      }
+      else {
+
+        res.json({
+          phone: user.phone,
+          role: user.role,
+          additionalInfo,
+
+        });
+      }
     }
-   else {
-    
-    res.json({
-      phone: user.phone,
-      role: user.role,
-      additionalInfo,
+    else {
 
-    });
-   }
-   }
-  else {
-    
-    res.json({
-      phone: user.phone,
-      role: user.role,
-      additionalInfo,
+      res.json({
+        phone: user.phone,
+        role: user.role,
+        additionalInfo,
 
-    });
-  }
+      });
+    }
 
   } catch (error) {
     console.error(error);
@@ -133,45 +133,45 @@ router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCou
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
     let files = [];
-    if(req.files){
-    if (req.files['aadharFile']) files.push(req.files['aadharFile'][0]);
-    if (req.files['dlFile']) files.push(req.files['dlFile'][0]);
+    if (req.files) {
+      if (req.files['aadharFile']) files.push(req.files['aadharFile'][0]);
+      if (req.files['dlFile']) files.push(req.files['dlFile'][0]);
     }
 
 
     // Update additional user information
     const { dlVerification, fullName, aadharVfid, address, currentAddressVfid, mlData } = req.body;
-    const {dlFile,aadharFile} = req.files;
-    if(dlFile || aadharFile){
-    
-    await UserAdditional.update({
-      id:userId,
-      Dlverification:dlVerification,
-      FullName:fullName,
-      AadharVfid:aadharVfid,
-      Address:address,
-      verification_status: 1,
-      CurrentAddressVfid:currentAddressVfid,
-      ml_data:mlData, 
-      dl:dlFile[0].destination,
-      aadhar:aadharFile[0].destination
-    }, { where: { id: userId } });
+    const { dlFile, aadharFile } = req.files;
+    if (dlFile || aadharFile) {
+
+      await UserAdditional.update({
+        id: userId,
+        Dlverification: dlVerification,
+        FullName: fullName,
+        AadharVfid: aadharVfid,
+        Address: address,
+        verification_status: 1,
+        CurrentAddressVfid: currentAddressVfid,
+        ml_data: mlData,
+        dl: dlFile[0].destination,
+        aadhar: aadharFile[0].destination
+      }, { where: { id: userId } });
 
 
-  }
-  else {
-    await UserAdditional.update({
-      id:userId,
-      DlVerification:dlVerification,
-      FullName:fullName,
-      AadharVfid:aadharVfid,
-      Address:address,
-      CurrentAddressVfid:currentAddressVfid,
-      ml_data:mlData
-    }, { where: { id: userId } });
-  }
+    }
+    else {
+      await UserAdditional.update({
+        id: userId,
+        DlVerification: dlVerification,
+        FullName: fullName,
+        AadharVfid: aadharVfid,
+        Address: address,
+        CurrentAddressVfid: currentAddressVfid,
+        ml_data: mlData
+      }, { where: { id: userId } });
+    }
 
     res.status(200).json({ message: 'Profile Updated successfully' });
   } catch (error) {
@@ -194,7 +194,7 @@ router.post('/signup', async (req, res) => {
     // Hash the password
     const salt = bcrypt.genSaltSync(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    
+
     const userId = uuid.v4();
     let user;
     // Create user based on the role
@@ -224,17 +224,17 @@ router.get('/cars', authenticate, async (req, res) => {
     const cph = await Pricing.findOne({ where: { carid: car.carid } });
 
     if (cph) {
-        const costperhr = cph.costperhr;
-        // Include pricing information in the car object
-        return { ...car.toJSON(), costperhr: costperhr  };
+      const costperhr = cph.costperhr;
+      // Include pricing information in the car object
+      return { ...car.toJSON(), costperhr: costperhr };
     } else {
-        return { ...car.toJSON(), costperhr: null };
+      return { ...car.toJSON(), costperhr: null };
     }
-});
+  });
 
-// Wait for all pricing calculations to complete
-const carsWithPricing = await Promise.all(pricingPromises);
-res.status(200).json({ "message": "All available cars", cars : carsWithPricing })
+  // Wait for all pricing calculations to complete
+  const carsWithPricing = await Promise.all(pricingPromises);
+  res.status(200).json({ "message": "All available cars", cars: carsWithPricing })
 })
 
 //Find Cars
@@ -359,37 +359,47 @@ router.post('/findcars', async (req, res) => {
       },
       include: [Car],
     });
-    // Extract car information from the listings
-    console.log(availableListings);
-    const availableCars = availableListings.map((listing) => listing.Car);
-    // Calculate pricing for each available car
-    const pricingPromises = availableCars.map(async (car) => {
-      const cph = await Pricing.findOne({ where: { carid: car.carid } });
+    console.log(availableListings)
+    // Map over the listings to get cars with pricing
+    const pricingPromises = availableListings.map(async (listing) => {
+      // Extract carId from listing dataValues
+      const carId = listing.dataValues.carid;
 
-      if (cph) {
-          const hours = calculateTripHours(startDate, endDate, startTime, endTime);
-          const amount = cph.costperhr * hours;
-          const costperhr = cph.costperhr;
-          // Include pricing information in the car object
-          return { ...car.toJSON(), pricing: { costperhr, hours , amount } };
-      } else {
-          return { ...car.toJSON(), pricing: null };
+      // Fetch the Car data based on carId
+      const car = await Car.findOne({ where: { carid: carId } });
+      if (!car) {
+        // Skip or handle the error appropriately if Car data is not found
+        return null;
       }
-  });
 
-  // Wait for all pricing calculations to complete
-  const carsWithPricing = await Promise.all(pricingPromises);
+      // Fetch the Pricing data for the Car
+      const cph = await Pricing.findOne({ where: { carid: carId } });
+      if (cph) {
+        const hours = calculateTripHours(startDate, endDate, startTime, endTime);
+        const amount = cph.costperhr * hours;
+        const costperhr = cph.costperhr;
 
-  // Respond with the available cars including pricing information
-  res.status(200).json({ availableCars: carsWithPricing });
+        // Combine the Car data with the pricing information
+        return { ...car.toJSON(), pricing: { costperhr, hours, amount } };
+      } else {
+        // Handle the case where Pricing data is not available
+        return { ...car.toJSON(), pricing: null };
+      }
+    });
+
+
+    const carsWithPricing = await Promise.all(pricingPromises);
+
+    res.status(200).json({ availableCars: carsWithPricing });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error finding available cars' });
   }
 });
 
+
 router.post('/onecar', async (req, res) => {
-  const { carId ,startDate, endDate, startTime, endTime } = req.body;
+  const { carId, startDate, endDate, startTime, endTime } = req.body;
   try {
     const availableListings = await Listing.findOne({
       where: {
@@ -519,21 +529,21 @@ router.post('/onecar', async (req, res) => {
       const cph = await Pricing.findOne({ where: { carid: car.carid } });
 
       if (cph) {
-          const hours = calculateTripHours(startDate, endDate, startTime, endTime);
-          const amount = cph.costperhr * hours;
-          const costperhr = cph.costperhr;
-          // Include pricing information in the car object
-          return { ...car.toJSON(), pricing: { costperhr, hours , amount } };
+        const hours = calculateTripHours(startDate, endDate, startTime, endTime);
+        const amount = cph.costperhr * hours;
+        const costperhr = cph.costperhr;
+        // Include pricing information in the car object
+        return { ...car.toJSON(), pricing: { costperhr, hours, amount } };
       } else {
-          return { ...car.toJSON(), pricing: null };
+        return { ...car.toJSON(), pricing: null };
       }
-  });
+    });
 
-  // Wait for all pricing calculations to complete
-  const carsWithPricing = await Promise.all(pricingPromises);
+    // Wait for all pricing calculations to complete
+    const carsWithPricing = await Promise.all(pricingPromises);
 
-  // Respond with the available cars including pricing information
-  res.status(200).json({ availableCars: carsWithPricing });
+    // Respond with the available cars including pricing information
+    res.status(200).json({ availableCars: carsWithPricing });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error finding available cars' });
@@ -565,8 +575,9 @@ router.post('/booking', authenticate, async (req, res) => {
     const userAdd = await UserAdditional.findOne({
       where: {
         id: userId,
-      }});
-    if(userAdd.verification_status != 2){
+      }
+    });
+    if (userAdd.verification_status != 2) {
       return res.status(400).json({ message: 'Your DL and Aadhar is not Approved' });
     }
     const listing = await Listing.findOne({
