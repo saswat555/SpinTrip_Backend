@@ -1,12 +1,11 @@
 module.exports = (sequelize, DataTypes) => {
   const Listing = sequelize.define("Listing", {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(36),
       primaryKey: true,
-      autoIncrement: true,
     },
     carid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(36),
       primaryKey: true,
     },
     hostid: {
@@ -48,12 +47,8 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
     },
     listingid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(36),
       allowNull: true,
-      validate: {
-        isInt: true, // Ensure it's an integer
-        min: 0, // Ensure it's non-negative
-      },
     },
     hourcount: {
       type: DataTypes.INTEGER,
@@ -64,7 +59,7 @@ module.exports = (sequelize, DataTypes) => {
       },
     },
     bookingId : {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(36),
       allowNull: true,
     },
   });

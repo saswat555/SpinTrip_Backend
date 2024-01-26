@@ -3,6 +3,8 @@ module.exports = (sequelize, DataTypes) => {
     carmodel: DataTypes.STRING,
     type: DataTypes.STRING,
     brand: DataTypes.STRING,
+    variant: DataTypes.STRING,
+    color: DataTypes.STRING,
     chassisno: DataTypes.STRING,
     Rcnumber: DataTypes.STRING,
     Enginenumber: DataTypes.STRING,

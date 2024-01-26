@@ -13,19 +13,19 @@ const path = require('path');
 
 const carImageStorage = multer.diskStorage({
     destination: function (req, file, cb) {
-        const carId = req.body.carid; 
+        const carId = req.body.carId; 
         const uploadPath = path.join(__dirname, '../uploads/host', 'CarAdditional', carId);
         fs.mkdirSync(uploadPath, { recursive: true });
         cb(null, uploadPath);
     },
     filename: function (req, file, cb) {
-        const imageNumber = file.fieldname.split('-')[1]; // Assuming fieldname like 'image-1'
-        cb(null, `image-${imageNumber}${path.extname(file.originalname)}`);
+        const imageNumber = file.fieldname.split('_')[1]; // Assuming fieldname like 'image-1'
+        cb(null, `carImage_${imageNumber}${path.extname(file.originalname)}`);
     }
 });
 
 const uploadCarImages = multer({ storage: carImageStorage }).fields(
-    Array.from({ length: 5 }, (_, i) => ({ name: `image-${i + 1}` }))
+    Array.from({ length: 5 }, (_, i) => ({ name: `carImage_${i + 1}` }))
 );
 const router = express.Router();
 const pricing = async ( car, carAdditional ) => {
@@ -173,15 +173,15 @@ router.get('/profile', authenticate, async (req, res) => {
 
 router.post('/car',authenticate,  async (req, res) => {
     carhostid = req.user.id;
-  const { carmodel, 
+  const { carModel, 
     type,
     brand,
-    chassisno,
-    Rcnumber,
-    Enginenumber,
-    Registrationyear,
-    bodytype,
-    timestamp } = req.body;
+    chassisNo,
+    rcNumber,
+    engineNumber,
+    registrationYear,
+    bodyType,
+    timeStamp } = req.body;
     
   try {
     const host = await Host.findByPk(req.user.id);
@@ -190,17 +190,19 @@ router.post('/car',authenticate,  async (req, res) => {
     if (!host ) {
       return res.status(401).json({ message: 'No Host found' });
     }
+    const carid = uuid.v4();
     const car =await Car.create({
-    carmodel, 
+    carModel, 
     type,
     brand,
-    chassisno,
-    Rcnumber,
-    Enginenumber,
-    Registrationyear,
-    bodytype,
+    chassisNo,
+    rcNumber,
+    engineNumber,
+    registrationYear,
+    bodyType,
+    carid,
     carhostid,
-    timestamp 
+    timeStamp 
     })
     await CarAdditional.create({ carid: car.carid });
     const carAdditional = await CarAdditional.findOne({
@@ -225,7 +227,9 @@ router.post('/car',authenticate,  async (req, res) => {
       carid:car.carid
       })
     }  
+    const listingid = uuid.v4();
     const listing = await Listing.create({
+      id: listingid,
       carid:car.carid,
       hostid:carhostid,
       details:"Null"
@@ -241,67 +245,75 @@ router.post('/car',authenticate,  async (req, res) => {
 router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => {
 
   try {
-    const { carid,
-      HorsePower,
-      AC,
-      Musicsystem,
-      Autowindow,
-      Sunroof,
-      Touchscreen,
-      Sevenseater,
-      Reversecamera,
-      Transmission,
-      Airbags,
-      FuelType,
-      Additionalinfo
+    const { carId,
+      horsePower,
+      ac,
+      musicSystem,
+      autoWindow,
+      sunRoof,
+      touchScreen,
+      sevenSeater,
+      reverseCamera,
+      transmission,
+      airBags,
+      fuelType,
+      additionalInfo
       } = req.body;
-    const car = await Car.findOne({ where:{carid:carid}} )
+    const car = await Car.findOne({ where:{carid:carId}} )
     if(!car){
       res.status(400).json({ message: 'Car not found' });
     }
     else{  
-    await CarAdditional.update({
-      HorsePower: HorsePower,
-      AC: AC,
-      Musicsystem: Musicsystem,
-      Autowindow: Autowindow,
-      Sunroof: Sunroof,
-      Touchscreen: Touchscreen,
-      Sevenseater: Sevenseater,
-      Reversecamera: Reversecamera,
-      Transmission: Transmission,
-      Airbags: Airbags,
-      FuelType: FuelType,
-      Additionalinfo: Additionalinfo
-    },
-    { where: { carid: carid } });
-    const carAdditional = await CarAdditional.findOne({
-      where: {
-        carid: carid,
-      }
-    });  
+
     let files = [];
     for (let i = 1; i <= 5; i++) {
-        if (req.files[`image-${i}`]) {
-            files.push(req.files[`image-${i}`][0]);
+        if (req.files[`carImage_${i}`]) {
+            files.push(req.files[`carImage_${i}`][0]);
         }
     }
+    const { carImage_1, carImage_2, carImage_3, carImage_4, carImage_5 } = req.files;
+    await CarAdditional.update({
+      HorsePower: horsePower,
+      AC: ac,
+      Musicsystem: musicSystem,
+      Autowindow: autoWindow,
+      Sunroof: sunRoof,
+      Touchscreen: touchScreen,
+      Sevenseater: sevenSeater,
+      Reversecamera: reverseCamera,
+      Transmission: transmission,
+      Airbags: airBags,
+      FuelType: fuelType,
+      carimage1: carImage_1 ? carImage_1[0].destination : null,
+      carimage2: carImage_2 ? carImage_2[0].destination : null,
+      carimage3: carImage_3 ? carImage_3[0].destination : null,
+      carimage4:  carImage_4 ? carImage_4[0].destination : null,
+      carimage5: carImage_5 ? carImage_5[0].destination : null,
+      verification_status: 1,
+      Additionalinfo: additionalInfo
+    },
+    { where: { carid: carId } });
 
+    const carAdditional = await CarAdditional.findOne({
+      where: {
+        carid: carId,
+      }
+    });  
     const costperhr = await pricing( car, carAdditional );
-    const Price = await Pricing.findOne({ where:{ carid: carid }})
+    const Price = await Pricing.findOne({ where:{ carid: carId }})
     let price1;
     if(Price){
       price1 = await Pricing.update(
        { costperhr: costperhr },
        { where:{ 
-          carid:carid
+          carid:carId
         }}
         );
     }
     else{
       price1 = await Pricing.create({
       costperhr,
-      carid,
+      carId,
       });
     }  
     res.status(201).json({ message: 'Car Additional added', carAdditional });
@@ -367,8 +379,8 @@ router.delete('/listing', authenticate, async (req, res) => {
 });
 
 router.post('/pricing', async (req, res) => {
-  const { carid } = req.body;
-  const Price = await Pricing.findOne({ where:{carid: carid}})
+  const { carId } = req.body;
+  const Price = await Pricing.findOne({ where:{carid: carId}})
   res.status(201).json({ "message": "price for the car", Price })
 });
 
@@ -378,7 +390,7 @@ router.post('/pricing', async (req, res) => {
 router.put('/listing', authenticate, async (req, res) => {
   try {
     // Get the listing ID from the request body
-    const { listingId, details , start_date, start_time, end_date, end_time, pausetime_start_date, pausetime_end_date, pausetime_end_time, pausetime_start_time, hourcount } = req.body;
+    const { listingId, details , startDate, startTime, endDate, endTime, pauseTimeStartDate, pauseTimeEndDate, pauseTimeEndTime, pauseTimeStartTime, hourCount } = req.body;
     const hostid = req.user.userid;
     const host = await Host.findOne({ where: { id: hostid } });
     // Check if the authenticated user is a host
@@ -398,15 +410,15 @@ router.put('/listing', authenticate, async (req, res) => {
     // Update the listing's details
     await listing.update({ 
       details: details,
-      start_date:start_date,
-      start_time:start_time,
-      end_date:end_date,
-      end_time:end_time,
-      pausetime_start_date:pausetime_start_date,
-      pausetime_end_date:pausetime_end_date,
-      pausetime_start_time:pausetime_start_time,
-      pausetime_end_time:pausetime_end_time,
-      hourcount:hourcount 
+      start_date:startDate,
+      start_time:startTime,
+      end_date:endDate,
+      end_time:endTime,
+      pausetime_start_date:pauseTimeStartDate,
+      pausetime_end_date:pauseTimeEndDate,
+      pausetime_start_time:pauseTimeStartTime,
+      pausetime_end_time:pauseTimeEndTime,
+      hourcount:hourCount 
     });
 
     res.status(200).json({ message: 'Listing updated successfully', updatedListing: listing });
@@ -455,14 +467,14 @@ router.get('/host-bookings', authenticate, async (req, res) => {
 });
 router.post('/rating', authenticate, async (req, res) => {
   try {
-    let { BookingId , rating } = req.body;
+    let { bookingId , rating } = req.body;
     if (!rating) {
       rating = 5 ;
     }
     const userId = req.user.id;
     const booking = await Booking.findOne({
       where: {
-        Bookingid: BookingId,
+        Bookingid: bookingId,
         //id: userId,
       }
     });
@@ -494,16 +506,40 @@ router.post('/rating', authenticate, async (req, res) => {
   }
 });
 router.post('/getCarAdditional', authenticate, async (req, res) => {
-  const { carid } = req.body;  
+  const { carId } = req.body;  
   const host = await Host.findOne({ where: { id: req.user.id } });
   if (!host) {
     return res.status(401).json({ message: 'Unauthorised User' });
   }
   const carAdditional = await CarAdditional.findOne({
     where: {
-      carid: carid,
+      carid: carId,
     }
   });
+  const userFolder = path.join('./uploads/host/CarAdditional', carId );
+    if (fs.existsSync(userFolder)){
+    // List all files in the car's folder
+    const files = fs.readdirSync(userFolder);
+    if(files){
+
+    // Filter and create URLs for Aadhar and DL files
+    let carImage_1 = files.filter(file => file.includes('carImage_1')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carId}/${file}`);
+    let carImage_2 = files.filter(file => file.includes('carImage_2')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carId}/${file}`);  
+    let carImage_3 = files.filter(file => file.includes('carImage_3')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carId}/${file}`); 
+    let carImage_4 = files.filter(file => file.includes('carImage_4')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carId}/${file}`); 
+    let carImage_5 = files.filter(file => file.includes('carImage_5')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carId}/${file}`); 
+
+    res.json({
+      carAdditional,
+      carImage_1,
+      carImage_2,
+      carImage_3,
+      carImage_4,
+      carImage_5,
+    });
+    }
+    }
+
   res.status(200).json({ "message": "Car Additional data", carAdditional })
 });
 

@@ -142,19 +142,19 @@ router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCou
 
 
     // Update additional user information
-    const { Dlverification, FullName, AadharVfid, Address, CurrentAddressVfid, ml_data } = req.body;
+    const { dlVerification, fullName, aadharVfid, address, currentAddressVfid, mlData } = req.body;
     const {dlFile,aadharFile} = req.files;
     if(dlFile || aadharFile){
     
     await UserAdditional.update({
       id:userId,
-      Dlverification:Dlverification,
-      FullName:FullName,
-      AadharVfid:AadharVfid,
-      Address:Address,
+      Dlverification:dlVerification,
+      FullName:fullName,
+      AadharVfid:aadharVfid,
+      Address:address,
       verification_status: 1,
-      CurrentAddressVfid:CurrentAddressVfid,
-      ml_data:ml_data, 
+      CurrentAddressVfid:currentAddressVfid,
+      ml_data:mlData, 
       dl:dlFile[0].destination,
       aadhar:aadharFile[0].destination
     }, { where: { id: userId } });
@@ -164,12 +164,12 @@ router.put('/profile', authenticate, upload.fields([{ name: 'aadharFile', maxCou
   else {
     await UserAdditional.update({
       id:userId,
-      DlVerification:Dlverification,
-      FullName:FullName,
-      AadharVfid:AadharVfid,
-      Address:Address,
-      CurrentAddressVfid:CurrentAddressVfid,
-      ml_data:ml_data
+      DlVerification:dlVerification,
+      FullName:fullName,
+      AadharVfid:aadharVfid,
+      Address:address,
+      CurrentAddressVfid:currentAddressVfid,
+      ml_data:mlData
     }, { where: { id: userId } });
   }
 
@@ -359,8 +359,159 @@ router.post('/findcars', async (req, res) => {
       },
       include: [Car],
     });
+    // Extract car information from the listings
+    console.log(availableListings);
+    const availableCars = availableListings.map((listing) => listing.Car);
+    // Calculate pricing for each available car
+    const pricingPromises = availableCars.map(async (car) => {
+      const cph = await Pricing.findOne({ where: { carid: car.carid } });
 
+      if (cph) {
+          const hours = calculateTripHours(startDate, endDate, startTime, endTime);
+          const amount = cph.costperhr * hours;
+          const costperhr = cph.costperhr;
+          // Include pricing information in the car object
+          return { ...car.toJSON(), pricing: { costperhr, hours , amount } };
+      } else {
+          return { ...car.toJSON(), pricing: null };
+      }
+  });
 
+  // Wait for all pricing calculations to complete
+  const carsWithPricing = await Promise.all(pricingPromises);
+
+  // Respond with the available cars including pricing information
+  res.status(200).json({ availableCars: carsWithPricing });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error finding available cars' });
+  }
+});
+
+router.post('/onecar', async (req, res) => {
+  const { carId ,startDate, endDate, startTime, endTime } = req.body;
+  try {
+    const availableListings = await Listing.findOne({
+      where: {
+        [Op.and]: [
+          {
+            [Op.or]: [
+              {
+                [Op.or]: [
+                  {
+                    pausetime_start_date: {
+                      [Op.gt]: endDate,
+                    },
+                  },
+                  {
+                    pausetime_end_date: {
+                      [Op.lt]: startDate,
+                    },
+                  },
+                ],
+              },
+              {
+                [Op.or]: [
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { pausetime_start_date: endDate },
+                          { pausetime_start_date: null },
+                        ],
+                      },
+                      {
+
+                        [Op.or]: [
+                          { pausetime_start_time: { [Op.gte]: endTime } },
+                          { pausetime_start_time: null },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { pausetime_end_date: startDate },
+                          { start_date: null },
+                        ],
+                      },
+                      {
+                        [Op.or]: [
+                          { pausetime_end_time: { [Op.lte]: startTime } },
+                          { pausetime_end_time: null },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            [Op.or]: [
+              {
+                [Op.and]: [
+                  {
+                    start_date: {
+                      [Op.lt]: startDate,
+                    },
+                  },
+                  {
+                    end_date: {
+                      [Op.gt]: endDate,
+                    },
+                  },
+                ],
+              },
+              {
+                [Op.or]: [
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { start_date: startDate },
+                          { start_date: null },
+                        ],
+                      },
+                      {
+
+                        [Op.or]: [
+                          { start_time: { [Op.lte]: startTime } },
+                          { start_time: null },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { end_date: endDate },
+                          { end_date: null },
+                        ],
+                      },
+                      {
+                        [Op.or]: [
+                          { end_time: { [Op.gte]: endTime } },
+                          { end_time: null },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        bookingId: { [Op.eq]: null },
+        carid: carId,
+      },
+      include: [Car],
+    });
+
+    console.log(availableListings);
     // Extract car information from the listings
     const availableCars = availableListings.map((listing) => listing.Car);
     // Calculate pricing for each available car
@@ -389,7 +540,6 @@ router.post('/findcars', async (req, res) => {
   }
 });
 
-
 function calculateTripHours(startTripDate, endTripDate, startTripTime, endTripTime) {
   // Combine date and time into a single string for both start and end
   const startDateTimeStr = `${startTripDate} ${startTripTime}`;
@@ -410,11 +560,18 @@ function calculateTripHours(startTripDate, endTripDate, startTripTime, endTripTi
 //Booking
 router.post('/booking', authenticate, async (req, res) => {
   try {
-    const { carid, startDate, endDate, startTime, endTime } = req.body;
+    const { carId, startDate, endDate, startTime, endTime } = req.body;
     const userId = req.user.userid;
+    const userAdd = await UserAdditional.findOne({
+      where: {
+        id: userId,
+      }});
+    if(userAdd.verification_status != 2){
+      return res.status(400).json({ message: 'Your DL and Aadhar is not Approved' });
+    }
     const listing = await Listing.findOne({
       where: {
-        carid: carid,
+        carid: carId,
         [Op.and]: [
           {
             [Op.or]: [
@@ -533,7 +690,7 @@ router.post('/booking', authenticate, async (req, res) => {
     if (listing) {
       const check_booking = await Booking.findOne({
         where: {
-          carid: carid,
+          carid: carId,
           [Op.and]: [{
             [Op.or]: [
               {
@@ -607,11 +764,13 @@ router.post('/booking', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
     }
     try {
-      let cph = await Pricing.findOne({ where: { carid: carid } })
+      let cph = await Pricing.findOne({ where: { carid: carId } })
       let hours = calculateTripHours(startDate, endDate, startTime, endTime);
       let amount = cph.costperhr * hours;
+      const bookingid = uuid.v4();
       let booking = await Booking.create({
-        carid: carid,
+        Bookingid: bookingid,
+        carid: carId,
         startTripDate: startDate,
         endTripDate: endDate,
         startTripTime: startTime,
@@ -635,18 +794,18 @@ router.post('/booking', authenticate, async (req, res) => {
 
 router.post('/Trip-Started', authenticate, async (req, res) => {
   try {
-    const { Bookingid } = req.body;
+    const { bookingId } = req.body;
     const booking = await Booking.findOne(
-      { where: { Bookingid: Bookingid, status: 1 } }
+      { where: { Bookingid: bookingId, status: 1 } }
     );
     if (booking) {
       await Listing.update(
-        { bookingId: Bookingid },
+        { bookingId: bookingId },
         { where: { carid: booking.carid } }
       );
       await Booking.update(
         { status: 2 },
-        { where: { Bookingid: Bookingid } }
+        { where: { Bookingid: bookingId } }
       );
       res.status(201).json({ message: 'Trip Has Started' });
     }
@@ -663,15 +822,15 @@ router.post('/Trip-Started', authenticate, async (req, res) => {
 //Cancel-Booking
 router.post('/Cancel-Booking', authenticate, async (req, res) => {
   try {
-    const { Bookingid } = req.body;
+    const { bookingId } = req.body;
     const booking = await Booking.findOne(
-      { where: { Bookingid: Bookingid } }
+      { where: { Bookingid: bookingId } }
     );
     if (booking) {
       if (booking.status === 1) {
         await Booking.update(
           { status: 4 },
-          { where: { Bookingid: Bookingid } }
+          { where: { Bookingid: bookingId } }
         );
         res.status(201).json({ message: 'Trip Has been Cancelled' });
       }
@@ -708,11 +867,11 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
 //Booking-Completed
 router.post('/booking-completed', authenticate, async (req, res) => {
   try {
-    const { BookingId } = req.body;
+    const { bookingId } = req.body;
     // if (payment.status === 'captured') {
     const booking = await Booking.findOne({
       where: {
-        Bookingid: BookingId,
+        Bookingid: bookingId,
         status: 2,
         //id: userId,
       }
@@ -729,7 +888,7 @@ router.post('/booking-completed', authenticate, async (req, res) => {
       );
       await Booking.update(
         { status: 3 },
-        { where: { Bookingid: BookingId } }
+        { where: { Bookingid: bookingId } }
       );
       return res.status(201).json({ message: 'booking complete', redirectTo: '/rating', BookingId });
     }
@@ -750,14 +909,14 @@ router.post('/booking-completed', authenticate, async (req, res) => {
 //Rating
 router.post('/rating', authenticate, async (req, res) => {
   try {
-    let { BookingId, rating } = req.body;
+    let { bookingId, rating } = req.body;
     if (!rating) {
       rating = 5;
     }
     const userId = req.user.id;
     const booking = await Booking.findOne({
       where: {
-        Bookingid: BookingId,
+        Bookingid: bookingId,
         //id: userId,
       }
     });

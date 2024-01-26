@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing } = require('../Models');
+const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, CarAdditional } = require('../Models');
 const path = require('path');
 const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
 const fs = require('fs');
@@ -49,7 +49,7 @@ const router = express.Router();
 
 // Admin Signup
 router.post('/signup', async (req, res) => {
-    const { phone, password, SecurityQuestion } = req.body;
+    const { phone, password, securityQuestion } = req.body;
   
     try {
       const user = await User.findOne({ where: { phone } });
@@ -63,7 +63,7 @@ router.post('/signup', async (req, res) => {
       // Update the Admin table with the user's ID and other properties
       const admin = await Admin.create({
         id: user.id, // Link to the user in the User table
-        SecurityQuestion,
+        securityQuestion,
         timestamp: new Date(), // Set the current timestamp
         password: hashedPassword,
         UserId: user.id
@@ -161,7 +161,7 @@ router.get('/users', async (req, res) => {
   res.status(500).json({ message: 'Error fetching user', error });
 } 
 });
-router.get('/pending-verfication', authenticate, async (req, res) => {
+router.get('/pending-profile', authenticate, async (req, res) => {
   try {
     const adminId = req.user.id;
     const admin = await Admin.findByPk(adminId);
@@ -203,6 +203,48 @@ router.get('/pending-verfication', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Error fetching pending profiles', error });
   }
 });
+router.get('/pending-carprofile', authenticate, async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const admin = await Admin.findByPk(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    let pendingProfiles = await CarAdditional.findAll({
+      where: { verification_status: 1 },    
+    });
+    if ( pendingProfiles.length === 0 ){
+        res.status(200).json({ message: 'No car approval required'});
+    }
+    else{ 
+      const carProfiles = await Promise.all(
+      pendingProfiles.map(async (item) => {
+        let id  = item.carid;
+        console.log(id);
+        let carid = id;
+        let userFolder = path.join('./uploads/host/CarAdditional', carid );
+        if (fs.existsSync(userFolder)){
+          let files = fs.readdirSync(userFolder);
+          if(files){
+          let carImage_1 = files.filter(file => file.includes('carImage_1')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carid}/${file}`);
+          let carImage_2 = files.filter(file => file.includes('carImage_2')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carid}/${file}`);  
+          let carImage_3 = files.filter(file => file.includes('carImage_3')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carid}/${file}`); 
+          let carImage_4 = files.filter(file => file.includes('carImage_4')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carid}/${file}`); 
+          let carImage_5 = files.filter(file => file.includes('carImage_5')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carid}/${file}`); 
+          return { ...item.toJSON(), carImage_1: carImage_1[0], carImage_2: carImage_2[0], carImage_3: carImage_3[0],carImage_4: carImage_4[0],carImage_5: carImage_5[0] };
+           }
+          }
+        return item.toJSON();
+      }
+      ));
+         res.status(200).json({ carProfiles });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error fetching pending profiles', error });
+  }
+});
 router.put('/approve-profile',authenticate, async (req, res) => {
   try {
     const adminId = req.user.id;
@@ -217,6 +259,22 @@ router.put('/approve-profile',authenticate, async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: 'Error approving profile', error });
+  }
+});
+router.put('/approve-carprofile',authenticate, async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const admin = await Admin.findByPk(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+    const carId = req.body.carId;
+    await CarAdditional.update({ verification_status: 2 }, { where: { carid: carId } });
+    res.status(200).json({ message: 'Car Profile approved successfully' });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error in approving Car profile', error });
   }
 });
 router.put('/brand', authenticate, async (req, res) => {

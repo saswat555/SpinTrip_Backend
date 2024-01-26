@@ -1,8 +1,8 @@
 module.exports = (sequelize, DataTypes) => {
   const Booking = sequelize.define("Booking", {
-    Bookingid: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    Bookingid: { type: DataTypes.STRING(36), primaryKey: true },
     Date: DataTypes.DATEONLY,
-    carid: { type: DataTypes.INTEGER},    
+    carid: { type: DataTypes.STRING(36)},    
     time: DataTypes.DATE,
     timestamp: DataTypes.DATE,
     id: {type: DataTypes.STRING(36)},
