@@ -173,6 +173,8 @@ router.post('/car', authenticate, async (req, res) => {
   carhostid = req.user.id;
   const { carModel,
     type,
+    variant,
+    color,
     brand,
     chassisNo,
     rcNumber,
@@ -190,17 +192,19 @@ router.post('/car', authenticate, async (req, res) => {
     }
     const carid = uuid.v4();
     const car = await Car.create({
-      carModel,
-      type,
-      brand,
-      chassisNo,
-      rcNumber,
-      engineNumber,
-      registrationYear,
-      bodyType,
-      carid,
-      carhostid,
-      timeStamp
+      carmodel: carModel,
+      type: type,
+      brand: brand,
+      variant: variant,
+      color: color,
+      chassisno: chassisNo,
+      Rcnumber: rcNumber,
+      Enginenumber: engineNumber,
+      Registrationyear: registrationYear,
+      bodytype: bodyType,
+      carid: carid,
+      hostId:carhostid,
+      timestamp: timeStamp
     })
     await CarAdditional.create({ carid: car.carid });
     const carAdditional = await CarAdditional.findOne({
