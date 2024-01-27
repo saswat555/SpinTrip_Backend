@@ -3,7 +3,7 @@ const express = require('express');
 const uuid = require('uuid');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing } = require('../Models');
+const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional } = require('../Models');
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
@@ -376,6 +376,16 @@ router.post('/findcars', async (req, res) => {
         // Skip or handle the error appropriately if Car data is not found
         return null;
       }
+      const carAdditional = await CarAdditional.findOne({ where: { carid: carId } });
+      const carFolder = path.join('./uploads/host/CarAdditional', carId);
+      let carImages;
+      if (fs.existsSync(carFolder)) {
+        const files = fs.readdirSync(carFolder);
+        carImages = files.map(file => `http://106.51.16.163:2000/uploads/host/CarAdditional/${carId}/${file}`);
+      } 
+      else{
+        carImages = null
+      }
 
       // Fetch the Pricing data for the Car
       const cph = await Pricing.findOne({ where: { carid: carId } });
@@ -385,10 +395,10 @@ router.post('/findcars', async (req, res) => {
         const costperhr = cph.costperhr;
 
         // Combine the Car data with the pricing information
-        return { ...car.toJSON(), pricing: { costperhr, hours, amount } };
+        return { ...car.toJSON(), pricing: { costperhr, hours, amount }, carAdditional:carAdditional, carImages:carImages };
       } else {
         // Handle the case where Pricing data is not available
-        return { ...car.toJSON(), pricing: null };
+        return { ...car.toJSON(), pricing: null , carAdditional:carAdditional, carImages:carImages};
       }
     });
 

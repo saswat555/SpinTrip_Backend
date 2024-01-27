@@ -21,7 +21,7 @@
   sequelize
     .authenticate()
     .then(() => {
-      console.log('Database connected to database_development');
+      console.log('Database connected to database successfully');
     })
     .catch((err) => {
       console.error('Unable to connect to the database:', err);

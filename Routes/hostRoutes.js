@@ -172,7 +172,8 @@ router.get('/profile', authenticate, async (req, res) => {
 
 router.post('/car', authenticate, async (req, res) => {
   carhostid = req.user.id;
-  const { carModel,
+  const { 
+    carModel,
     type,
     variant,
     color,
