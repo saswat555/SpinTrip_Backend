@@ -10,6 +10,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 
+const router = express.Router();
 
 const carImageStorage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -19,7 +20,8 @@ const carImageStorage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    const imageNumber = file.fieldname.split('_')[1]; // Assuming fieldname like 'image-1'
+    // Extracting the number from the fieldname (e.g., "carImage_1")
+    const imageNumber = file.fieldname.split('_')[1];
     cb(null, `carImage_${imageNumber}${path.extname(file.originalname)}`);
   }
 });
@@ -27,7 +29,6 @@ const carImageStorage = multer.diskStorage({
 const uploadCarImages = multer({ storage: carImageStorage }).fields(
   Array.from({ length: 5 }, (_, i) => ({ name: `carImage_${i + 1}` }))
 );
-const router = express.Router();
 const pricing = async (car, carAdditional) => {
   try {
     const currentYear = new Date().getFullYear();
@@ -156,7 +157,7 @@ router.get('/profile', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Host not found' });
     }
 
-    const cars = await Car.findAll({ where: { carhostid: host.id } })
+    const cars = await Car.findAll({ where: { hostId: host.id } })
     const additionalinfo = await UserAdditional.findByPk(hostId)
     // You can include more fields as per your User model
     res.json({ hostDetails: host, cars, additionalinfo });
@@ -214,7 +215,7 @@ router.post('/car', authenticate, async (req, res) => {
     });
     const costperhr = await pricing(car, carAdditional);
     const Price = await Pricing.findOne({ where: { carid: car.carid } });
-    let price;
+    var price;
     if (Price) {
       price = await Pricing.update(
         { costperhr: costperhr },
@@ -236,7 +237,6 @@ router.post('/car', authenticate, async (req, res) => {
       id: listingid,
       carid: car.carid,
       hostid: carhostid,
-      details: "Null"
     })
     res.status(201).json({ message: 'Car and listing added successfully for the host', car, listing });
 
@@ -249,7 +249,8 @@ router.post('/car', authenticate, async (req, res) => {
 router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => {
 
   try {
-    const { carId,
+    const { 
+      carId,
       horsePower,
       ac,
       musicSystem,
@@ -271,8 +272,8 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
 
       let files = [];
       for (let i = 1; i <= 5; i++) {
-        if (req.files[`carImage_${i}`]) {
-          files.push(req.files[`carImage_${i}`][0]);
+        if (req.files[`image-${i}`]) {
+          files.push(req.files[`image${i}`][0]);
         }
       }
       const { carImage_1, carImage_2, carImage_3, carImage_4, carImage_5 } = req.files;
@@ -298,7 +299,7 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
       },
         { where: { carid: carId } });
 
-      const carAdditional = await CarAdditional.findOne({
+        const carAdditional = await CarAdditional.findOne({
         where: {
           carid: carId,
         }
@@ -513,41 +514,43 @@ router.post('/rating', authenticate, async (req, res) => {
 });
 router.post('/getCarAdditional', authenticate, async (req, res) => {
   const { carId } = req.body;
-  const host = await Host.findOne({ where: { id: req.user.id } });
-  if (!host) {
-    return res.status(401).json({ message: 'Unauthorised User' });
-  }
-  const carAdditional = await CarAdditional.findOne({
-    where: {
-      carid: carId,
+  const hostId = req.user.id; // Assuming the host ID is part of the authenticated user details
+
+  try {
+    // Check if the host owns the car
+    const car = await Car.findOne({ where: { carid: carId, hostId: hostId } });
+    if (!car) {
+      return res.status(404).json({ message: 'Car not found or unauthorized access' });
     }
-  });
-  const userFolder = path.join('./uploads/host/CarAdditional', carId);
-  if (fs.existsSync(userFolder)) {
-    // List all files in the car's folder
-    const files = fs.readdirSync(userFolder);
-    if (files) {
 
-      // Filter and create URLs for Aadhar and DL files
-      let carImage_1 = files.filter(file => file.includes('carImage_1')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carId}/${file}`);
-      let carImage_2 = files.filter(file => file.includes('carImage_2')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carId}/${file}`);
-      let carImage_3 = files.filter(file => file.includes('carImage_3')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carId}/${file}`);
-      let carImage_4 = files.filter(file => file.includes('carImage_4')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carId}/${file}`);
-      let carImage_5 = files.filter(file => file.includes('carImage_5')).map(file => `http://spintrip.in/uploads/host/CarAdditional/${carId}/${file}`);
+    const carAdditional = await CarAdditional.findOne({ where: { carid: carId } });
+    if (!carAdditional) {
+      return res.status(404).json({ message: 'Car additional information not found' });
+    }
 
-      res.json({
+    // Path to the car's folder in the uploads directory
+    const carFolder = path.join('./uploads/host/CarAdditional', carId);
+    if (fs.existsSync(carFolder)) {
+      // List all files in the car's folder
+      const files = fs.readdirSync(carFolder);
+      const carImages = files.map(file => `http://106.51.16.163:2000/uploads/host/CarAdditional/${carId}/${file}`);
+
+      res.status(200).json({
+        message: "Car Additional data",
         carAdditional,
-        carImage_1,
-        carImage_2,
-        carImage_3,
-        carImage_4,
-        carImage_5,
+        carImages // Including the array of car image URLs
+      });
+    } else {
+      // If no images found, return only the car additional data
+      res.status(200).json({
+        message: "Car Additional data, no images found",
+        carAdditional
       });
     }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
-
-  res.status(200).json({ "message": "Car Additional data", carAdditional })
 });
-
 module.exports = router;
 

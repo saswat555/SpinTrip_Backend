@@ -34,6 +34,18 @@ app.get('/uploads/:userId/:imageName', (req, res) => {
     res.status(404).send('Image not found');
   }
 });
+app.get('/uploads/host/CarAdditional/:carId/:imageName', (req, res) => {
+  const { carId, imageName } = req.params;
+  const imagePath = path.join(__dirname, './uploads/host/CarAdditional', carId, imageName);
+
+  // Check if file exists
+  if (fs.existsSync(imagePath)) {
+    // You can add additional logic here if needed
+    res.sendFile(imagePath);
+  } else {
+    res.status(404).send('Image not found');
+  }
+});
 
 // Routes
 app.use('/user', userRoutes);
