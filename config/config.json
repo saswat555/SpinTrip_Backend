@@ -2,22 +2,22 @@
   "development": {
     "username": "postgres",
     "password": "1234",
-    "database": "database_development",
-    "host": "localhost",
+    "database": "mydatabase",
+    "host": "db",
     "dialect": "postgres"
   },
   "test": {
     "username": "postgres",
     "password": "1234",
-    "database": "database_test",
-    "host": "localhost",
+    "database": "mydatabase",
+    "host": "db",
     "dialect": "postgres"
   },
   "production": {
     "username": "postgres",
     "password": "1234",
-    "database": "database_production",
-    "host": "localhost",
+    "database": "mydatabase",
+    "host": "db",
     "dialect": "postgres"
   }
 }
