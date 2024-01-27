@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   app:
-    image: spintrip555/spintrip-backend:11.0
+    image: spintrip555/spintrip-backend:13.0
     ports:
       - "2000:2000"
     environment:
