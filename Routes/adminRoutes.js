@@ -66,7 +66,8 @@ router.post('/signup', async (req, res) => {
         securityQuestion,
         timestamp: new Date(), // Set the current timestamp
         password: hashedPassword,
-        UserId: user.id
+        UserId: user.id,
+        role: 'Admin'
       });
   
       res.status(201).json({ message: 'Admin created', admin });
