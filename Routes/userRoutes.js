@@ -285,7 +285,7 @@ router.get('/cars', authenticate, async (req, res) => {
 })
 
 //Find Cars
-router.post('/findcars', async (req, res) => {
+router.post('/findcars', authenticate, async (req, res) => {
   const { startDate, endDate, startTime, endTime } = req.body;
   try {
     const availableListings = await Listing.findAll({
@@ -1039,7 +1039,6 @@ router.post('/extend-booking', authenticate, async (req, res) => {
             ],
           },
         ],
-        bookingId: { [Op.ne]: booking.Bookingid },
       },
     });
     if (listing) {
@@ -1115,8 +1114,11 @@ router.post('/extend-booking', authenticate, async (req, res) => {
         return res.status(400).json({ message: 'Selected car is not available for extension' });
       }
     }
+    else{
+      return res.status(400).json({ message: 'Car is not available' })
+    }
     // Calculate additional hours
-    const additionalHours = calculateTripHours(currentEndDate, newEndDate, currentEndTime, newEndTime);
+    const additionalHours = calculateTripHours(currentEndDate, newEndDate,  currentEndTime, newEndTime);
     
     // Retrieve pricing information for the car
     const cph = await Pricing.findOne({ where: { carid: booking.carid } });
