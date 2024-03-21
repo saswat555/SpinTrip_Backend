@@ -119,7 +119,7 @@ router.post('/verify-otp', async (req, res) => {
   if (fixed_otp === otp) {
     const user = await User.findOne({ where: { phone } });
     const token = jwt.sign({ id: user.id, role: 'host' }, 'your_secret_key');
-    return res.json({ message: 'OTP verified successfully', user, token });
+    return res.json({ message: 'OTP verified successfully', id: user.id, token });
   } else {
     return res.status(401).json({ message: 'Invalid OTP' });
   }
@@ -135,13 +135,17 @@ router.post('/signup', async (req, res) => {
     // const hashedPassword = bcrypt.hashSync("my-password", salt);
     const hashedPassword = await bcrypt.hash(password, salt);
     const userId = uuid.v4();
-    const user = await User.create({ id: userId, phone, password: hashedPassword });
+    const user = await User.create({ id: userId, phone, password: hashedPassword, role: 'Host' });
     const host = await Host.create({
       id: user.id,
       carid: null
     });
-
-    res.status(201).json({ message: 'Host created', host });
+    let response = {
+      id: user.id,
+      phone: user.phone,
+      role: user.role,
+    }
+    res.status(201).json({ message: 'Host created', response });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error creating host' });
@@ -171,8 +175,7 @@ router.get('/profile', authenticate, async (req, res) => {
 // Add Car
 
 router.post('/car', authenticate, async (req, res) => {
-  carhostid = req.user.id;
-  const { 
+  const {
     carModel,
     type,
     variant,
@@ -205,7 +208,7 @@ router.post('/car', authenticate, async (req, res) => {
       Registrationyear: registrationYear,
       bodytype: bodyType,
       carid: carid,
-      hostId:carhostid,
+      hostId: carhostid,
       timestamp: timeStamp
     })
     await CarAdditional.create({ carid: car.carid });
@@ -239,7 +242,22 @@ router.post('/car', authenticate, async (req, res) => {
       carid: car.carid,
       hostid: carhostid,
     })
-    res.status(201).json({ message: 'Car and listing added successfully for the host', car, listing });
+
+    let postedCar = {
+      carId: car.carid,
+      carModel: car.carmodel,
+      type: car.type,
+      brand: car.brand,
+      variant: car.variant,
+      color: car.color,
+      chassisNo: car.chassisno,
+      rcNumber: car.Rcnumber,
+      bodyType: car.bodytype,
+      hostId: car.hostId,
+      rating: car.rating,
+      listingId: listing.id,
+    }
+    res.status(201).json({ message: 'Car and listing added successfully for the host', postedCar });
 
   } catch (error) {
     console.error(error);
@@ -247,10 +265,48 @@ router.post('/car', authenticate, async (req, res) => {
   }
 });
 
+router.post('/createListing', authenticate, async (req, res) => {
+  const { carId } = req.body;
+  try {
+    const host = await Host.findByPk(req.user.id);
+    const carhostid = req.user.id;
+
+    if (!host) {
+      return res.status(401).json({ message: 'No Host found' });
+    }
+    const listingid = uuid.v4();
+    const listings = await Listing.create({
+      id: listingid,
+      carid: carId,
+      hostid: carhostid,
+    });
+
+    const listing = {
+      id: listings.id,
+      carId: listings.carid,
+      hostId: listings.hostid,
+      details: listings.details,
+      startDate: listings.start_date,
+      startTime: listings.start_time,
+      endDate: listings.end_date,
+      endTime: listings.end_time,
+      pauseTimeStartDate: listings.pausetime_start_date,
+      pauseTimeEndDate: listings.pausetime_end_date,
+      pauseTimeStartTime: listings.pausetime_start_time,
+      pauseTimeEndTime: listings.pausetime_end_time,
+      bookingId: listings.bookingId
+    }
+    res.status(200).json({ message: 'Listing created successfully', listing });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error Adding Listing' });
+  }
+});
+
 router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => {
 
   try {
-    const { 
+    const {
       carId,
       horsePower,
       ac,
@@ -300,7 +356,7 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
       },
         { where: { carid: carId } });
 
-        const carAdditional = await CarAdditional.findOne({
+      const carAdditional = await CarAdditional.findOne({
         where: {
           carid: carId,
         }
@@ -324,7 +380,26 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
           carId,
         });
       }
-      res.status(201).json({ message: 'Car Additional added', carAdditional });
+      let carAdditionals = {
+        carId: carAdditional.carid,
+        horsePower: carAdditional.HorsePower,
+        ac: carAdditional.AC,
+        musicSystem: carAdditional.Musicsystem,
+        autoWindow: carAdditional.Autowindow,
+        sunroof: carAdditional.Sunroof,
+        touchScreen: carAdditional.Touchscreen,
+        sevenSeater: carAdditional.Sevenseater,
+        reverseCamera: carAdditional.Reversecamera,
+        transmission: carAdditional.Transmission,
+        airBags: carAdditional.Airbags,
+        carImage1: carAdditional.carimage1,
+        carImage2: carAdditional.carimage2,
+        carImage3: carAdditional.carimage3,
+        carImage4: carAdditional.carimage4,
+        carImage5: carAdditional.carimage5,
+        verificationStatus: carAdditional.verification_status,
+      }
+      res.status(201).json({ message: 'Car Additional added', carAdditionals });
     }
   } catch (error) {
     console.error(error);
@@ -338,7 +413,27 @@ router.get('/listing', authenticate, async (req, res) => {
   if (host) {
     try {
       const listing = await Listing.findAll({ where: { hostid: hostid } });
-      res.status(201).json({ message: "Listing successfully queried", listing })
+      const listings = listing.map(async (lstg) => {
+        const lk = {
+          id: lstg.id,
+          carId: lstg.carid,
+          hostId: lstg.hostid,
+          details: lstg.details,
+          startDate: lstg.start_date,
+          startTime: lstg.start_time,
+          endDate: lstg.end_date,
+          endTime: lstg.end_time,
+          pauseTimeStartDate: lstg.pausetime_start_date,
+          pauseTimeEndDate: lstg.pausetime_end_date,
+          pauseTimeStartTime: lstg.pausetime_start_time,
+          pauseTimeEndTime: lstg.pausetime_end_time,
+          bookingId: lstg.bookingId
+        }
+        return { ...lk };
+      });
+      const hostListings = await Promise.all(listings);
+      console.log(hostListings);
+      res.status(201).json({ message: "Listing successfully queried", hostListings })
     }
     catch (error) {
       console.log(error);
@@ -375,11 +470,12 @@ router.delete('/listing', authenticate, async (req, res) => {
     }
 
     // Delete the listing
-    const listing1 = await Listing.create({
-      carid: carid,
-      hostid: carhostid
-    })
-    res.status(201).json({ message: 'Listing reset successfully', listing1 });
+    // const listing1 = await Listing.create({
+    //   carid: listing.carid,
+    //   hostid: listing.carhostid
+    // })
+    await listing.destroy();
+    res.status(201).json({ message: 'Listing reset successfully' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error deleting listing' });
@@ -387,9 +483,20 @@ router.delete('/listing', authenticate, async (req, res) => {
 });
 
 router.post('/pricing', async (req, res) => {
+  try{
   const { carId } = req.body;
   const Price = await Pricing.findOne({ where: { carid: carId } })
-  res.status(201).json({ "message": "price for the car", Price })
+  if(Price){
+  res.status(201).json({ "message": "price for the car", carId: Price.carid , costPerHr: Price.costperhr });
+  }
+  else
+  {
+  res.status(400).json({ "message": "pricing cannot be found" });
+  }
+  } catch (error) {
+  console.error(error);
+  res.status(500).json({ message: 'Error checking Pricing' });
+  }
 });
 
 
@@ -429,7 +536,23 @@ router.put('/listing', authenticate, async (req, res) => {
       hourcount: hourCount
     });
 
-    res.status(200).json({ message: 'Listing updated successfully', updatedListing: listing });
+    const listings = {
+      id: listing.id,
+      carId: listing.carid,
+      hostId: listing.hostid,
+      details: listing.details,
+      startDate: listing.start_date,
+      startTime: listing.start_time,
+      endDate: listing.end_date,
+      endTime: listing.end_time,
+      pauseTimeStartDate: listing.pausetime_start_date,
+      pauseTimeEndDate: listing.pausetime_end_date,
+      pauseTimeStartTime: listing.pausetime_start_time,
+      pauseTimeEndTime: listing.pausetime_end_time,
+      bookingId: listing.bookingId
+    }
+
+    res.status(200).json({ message: 'Listing updated successfully', updatedListing: listings });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error updating listing' });
@@ -439,36 +562,39 @@ router.put('/listing', authenticate, async (req, res) => {
 //Host-Bookings
 router.get('/host-bookings', authenticate, async (req, res) => {
   try {
-    const hostId = req.user.id;
+    const hostid = req.user.id;
     let bookings = await Booking.findAll({
       include: [
         {
           model: Car,
-          where: hostId,
+          where: { hostId: hostid },
           attributes: ['carmodel', 'chassisno', 'Rcnumber', 'Enginenumber'],
         }
       ],
     });
-    const current = new Date();
-    const currentDate = current.toISOString().split('T')[0];
-    const currentTime = current.toISOString().split('T')[1].split('.')[0];
-    let pastBookings = [];
-    let currentBookings = [];
-    let futureBookings = [];
-    bookings.forEach((booking) => {
-      const startDate = booking.startTripDate;
-      const endDate = booking.endTripDate;
-      if (endDate < currentDate) {
-        pastBookings.push(booking);
-      } else if ((startDate <= currentDate) && (endDate >= currentDate)) {
-        currentBookings.push(booking);
-      } else {
-        futureBookings.push(booking);
+    if(bookings){
+      const hostBooking = bookings.map(async (booking) => {
+      const bk = {
+        bookingId: booking.BookingId,
+        carId: booking.carid,
+        id: booking.id,
+        status: booking.status,
+        amount: booking.amount,
+        transactionId: booking.Transactionid,
+        startTripDate: booking.startTripDate,
+        endTripDate: booking.endTripDate,
+        startTripTime: booking.startTripTime,
+        endTripTime: booking.endTripTime
       }
+      return { ...bk };
     });
-
-    res.json({ pastBookings, currentBookings, futureBookings });
-  } catch (error) {
+    const hostBookings  = await Promise.all(hostBooking);  
+    res.status(201).json( { hostBookings: hostBookings });
+  }
+  else{
+    res.status(400).json({ message: 'No bookings found' });
+  }
+} catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
@@ -506,7 +632,7 @@ router.post('/rating', authenticate, async (req, res) => {
     console.log(bookingCount);
     let new_rating = (parseFloat(rating) + parseFloat(user.rating * (bookingCount - 1))) / (bookingCount);
     user.update({ rating: new_rating });
-    res.status(201).json(user);
+    res.status(201).json('Thank you for your response');
   }
   catch (error) {
     console.error(error);
@@ -528,7 +654,25 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
     if (!carAdditional) {
       return res.status(404).json({ message: 'Car additional information not found' });
     }
-
+    let carAdditionals = {
+      carId: carAdditional.carid,
+      horsePower: carAdditional.HorsePower,
+      ac: carAdditional.AC,
+      musicSystem: carAdditional.Musicsystem,
+      autoWindow: carAdditional.Autowindow,
+      sunroof: carAdditional.Sunroof,
+      touchScreen: carAdditional.Touchscreen,
+      sevenSeater: carAdditional.Sevenseater,
+      reverseCamera: carAdditional.Reversecamera,
+      transmission: carAdditional.Transmission,
+      airBags: carAdditional.Airbags,
+      carImage1: carAdditional.carimage1,
+      carImage2: carAdditional.carimage2,
+      carImage3: carAdditional.carimage3,
+      carImage4: carAdditional.carimage4,
+      carImage5: carAdditional.carimage5,
+      verificationStatus: carAdditional.verification_status,
+    }
     // Path to the car's folder in the uploads directory
     const carFolder = path.join('./uploads/host/CarAdditional', carId);
     if (fs.existsSync(carFolder)) {
@@ -538,14 +682,14 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
 
       res.status(200).json({
         message: "Car Additional data",
-        carAdditional,
+        carAdditionals,
         carImages // Including the array of car image URLs
       });
     } else {
       // If no images found, return only the car additional data
       res.status(200).json({
         message: "Car Additional data, no images found",
-        carAdditional
+        carAdditionals
       });
     }
   } catch (error) {
