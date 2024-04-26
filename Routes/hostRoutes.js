@@ -9,6 +9,7 @@ const { sendOTP, generateOTP } = require('../Controller/hostController');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const { parseString } = require('xml2js');
 
 const router = express.Router();
 
@@ -170,10 +171,7 @@ router.get('/profile', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
-
 // Add Car
-
 router.post('/car', authenticate, async (req, res) => {
   const {
     carModel,
@@ -697,5 +695,55 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
+router.post('/getCarReg', async (req, res) => {
+  const { RegID } = req.body;
+  const soapEnvelope = `
+  <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://regcheck.org.uk">
+    <soap:Header/>
+    <soap:Body>
+      <web:CheckIndia>
+        <web:RegistrationNumber>${RegID}</web:RegistrationNumber>
+        <web:username>saswat555</web:username>
+      </web:CheckIndia>
+    </soap:Body>
+  </soap:Envelope>
+`;
+
+  try {
+    const response = await fetch('https://www.regcheck.org.uk/api/reg.asmx', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/xml; charset=utf-8',
+        'SOAPAction': '"http://regcheck.org.uk/CheckIndia"'
+      },
+      body: soapEnvelope
+    });
+
+    const responseBody = await response.text();
+
+    parseString(responseBody, (err, result) => {
+      if (err) {
+        console.error('Error parsing XML:', err);
+        res.status(500).json({ error: 'Error parsing XML' });
+        return;
+      }
+
+      // Log the parsed JSON object in the specified format
+      console.log(`HTTP/1.1 200 OK`);
+      console.log(`Content-Type: text/xml; charset=utf-8`);
+      console.log(`Content-Length: ${responseBody.length}`);
+      console.log(``);
+      console.log(JSON.stringify(result, null, 2));
+    });
+
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    res.status(500).json({ error: 'Error fetching data' });
+  }
+});
+  
+
 module.exports = router;
 
