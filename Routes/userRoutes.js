@@ -897,6 +897,63 @@ router.post('/booking', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+router.post('/getCarAdditional', async (req, res) => {
+  const { carId } = req.body;
+
+  try {
+    // Check if the host owns the car
+    const car = await Car.findOne({ where: { carid: carId } });
+    if (!car) {
+      return res.status(404).json({ message: 'Car not found or unauthorized access' });
+    }
+
+    const carAdditional = await CarAdditional.findOne({ where: { carid: carId } });
+    if (!carAdditional) {
+      return res.status(404).json({ message: 'Car additional information not found' });
+    }
+    let carAdditionals = {
+      carId: carAdditional.carid,
+      horsePower: carAdditional.HorsePower,
+      ac: carAdditional.AC,
+      musicSystem: carAdditional.Musicsystem,
+      autoWindow: carAdditional.Autowindow,
+      sunroof: carAdditional.Sunroof,
+      touchScreen: carAdditional.Touchscreen,
+      sevenSeater: carAdditional.Sevenseater,
+      reverseCamera: carAdditional.Reversecamera,
+      transmission: carAdditional.Transmission,
+      airBags: carAdditional.Airbags,
+      carImage1: carAdditional.carimage1,
+      carImage2: carAdditional.carimage2,
+      carImage3: carAdditional.carimage3,
+      carImage4: carAdditional.carimage4,
+      carImage5: carAdditional.carimage5,
+      verificationStatus: carAdditional.verification_status,
+    }
+    // Path to the car's folder in the uploads directory
+    const carFolder = path.join('./uploads/host/CarAdditional', carId);
+    if (fs.existsSync(carFolder)) {
+      // List all files in the car's folder
+      const files = fs.readdirSync(carFolder);
+      const carImages = files.map(file => `http://106.51.16.163:2000/uploads/host/CarAdditional/${carId}/${file}`);
+
+      res.status(200).json({
+        message: "Car Additional data",
+        carAdditionals,
+        carImages // Including the array of car image URLs
+      });
+    } else {
+      // If no images found, return only the car additional data
+      res.status(200).json({
+        message: "Car Additional data, no images found",
+        carAdditionals
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 router.post('/extend-booking', authenticate, async (req, res) => {
   try {
