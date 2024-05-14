@@ -935,7 +935,7 @@ router.post('/getCarAdditional', async (req, res) => {
     if (fs.existsSync(carFolder)) {
       // List all files in the car's folder
       const files = fs.readdirSync(carFolder);
-      const carImages = files.map(file => `http://106.51.16.163:2000/uploads/host/CarAdditional/${carId}/${file}`);
+      const carImages = files.map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${carId}/${file}`);
 
       res.status(200).json({
         message: "Car Additional data",
