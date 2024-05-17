@@ -82,8 +82,8 @@ router.get('/profile', authenticate, async (req, res) => {
       if (files) {
 
         // Filter and create URLs for Aadhar and DL files
-        const aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `http://spintrip.in/uploads/${userId}/${file}`);
-        const dlFile = files.filter(file => file.includes('dlFile')).map(file => `http://spintrip.in/uploads/${userId}/${file}`);
+        const aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `http://54.206.23.199:2000/uploads/${userId}/${file}`);
+        const dlFile = files.filter(file => file.includes('dlFile')).map(file => `http://54.206.23.199:2000/uploads/${userId}/${file}`);
         let profile = {
           id: additionalInfo.id,
           dlNumber: additionalInfo.Dlverification,
@@ -195,13 +195,14 @@ router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCoun
     const { dlFile, aadharFile } = req.files;
     if (dlFile || aadharFile) {
 
-      await user.update({
-        verification_status:1
-      }, { where: { id: userId } });
+      // await user.update({
+      //   verification_status:1
+      // }, { where: { id: userId } });
 
       await UserAdditional.update({
         dl: dlFile[0].destination,
-        aadhar: aadharFile[0].destination
+        aadhar: aadharFile[0].destination,
+        verification_status:1
       }, { where: { id: userId } });
     }
 
@@ -442,6 +443,21 @@ router.post('/findcars', authenticate, async (req, res) => {
         bodyType: car.bodytype,
         hostId: car.hostId,
         rating: car.rating,
+        registrationYear: car.Registrationyear,
+        horsePower: carAdditional.HorsePower,
+        ac: carAdditional.AC,
+        musicSystem: carAdditional.Musicsystem,
+        autoWindow: carAdditional.Autowindow,
+        sunRoof: carAdditional.Sunroof,
+        touchScreen: carAdditional.Touchscreen,
+        sevenSeater: carAdditional.Sevenseater,
+        reverseCamera: carAdditional.Reversecamera,
+        transmission: carAdditional.Transmission,
+        airBags: carAdditional.Airbags,
+        latitude: '',
+        longitude: '',
+        fuelType: carAdditional.FuelType,
+        additionalInfo: carAdditional.Additionalinfo, 
         carImage1: carAdditional.carimage1, 
         carImage2: carAdditional.carimage2, 
         carImage3: carAdditional.carimage3, 
