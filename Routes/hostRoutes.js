@@ -10,9 +10,8 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { parseString } = require('xml2js');
-
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const router = express.Router();
-
 const carImageStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const carId = req.body.carId;
@@ -481,19 +480,18 @@ router.delete('/listing', authenticate, async (req, res) => {
 });
 
 router.post('/pricing', async (req, res) => {
-  try{
-  const { carId } = req.body;
-  const Price = await Pricing.findOne({ where: { carid: carId } })
-  if(Price){
-  res.status(201).json({ "message": "price for the car", carId: Price.carid , costPerHr: Price.costperhr });
-  }
-  else
-  {
-  res.status(400).json({ "message": "pricing cannot be found" });
-  }
+  try {
+    const { carId } = req.body;
+    const Price = await Pricing.findOne({ where: { carid: carId } })
+    if (Price) {
+      res.status(201).json({ "message": "price for the car", carId: Price.carid, costPerHr: Price.costperhr });
+    }
+    else {
+      res.status(400).json({ "message": "pricing cannot be found" });
+    }
   } catch (error) {
-  console.error(error);
-  res.status(500).json({ message: 'Error checking Pricing' });
+    console.error(error);
+    res.status(500).json({ message: 'Error checking Pricing' });
   }
 });
 
@@ -570,29 +568,29 @@ router.get('/host-bookings', authenticate, async (req, res) => {
         }
       ],
     });
-    if(bookings){
+    if (bookings) {
       const hostBooking = bookings.map(async (booking) => {
-      const bk = {
-        bookingId: booking.BookingId,
-        carId: booking.carid,
-        id: booking.id,
-        status: booking.status,
-        amount: booking.amount,
-        transactionId: booking.Transactionid,
-        startTripDate: booking.startTripDate,
-        endTripDate: booking.endTripDate,
-        startTripTime: booking.startTripTime,
-        endTripTime: booking.endTripTime
-      }
-      return { ...bk };
-    });
-    const hostBookings  = await Promise.all(hostBooking);  
-    res.status(201).json( { hostBookings: hostBookings });
-  }
-  else{
-    res.status(400).json({ message: 'No bookings found' });
-  }
-} catch (error) {
+        const bk = {
+          bookingId: booking.BookingId,
+          carId: booking.carid,
+          id: booking.id,
+          status: booking.status,
+          amount: booking.amount,
+          transactionId: booking.Transactionid,
+          startTripDate: booking.startTripDate,
+          endTripDate: booking.endTripDate,
+          startTripTime: booking.startTripTime,
+          endTripTime: booking.endTripTime
+        }
+        return { ...bk };
+      });
+      const hostBookings = await Promise.all(hostBooking);
+      res.status(201).json({ hostBookings: hostBookings });
+    }
+    else {
+      res.status(400).json({ message: 'No bookings found' });
+    }
+  } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
@@ -700,16 +698,16 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
 router.post('/getCarReg', async (req, res) => {
   const { RegID } = req.body;
   const soapEnvelope = `
-  <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://regcheck.org.uk">
-    <soap:Header/>
-    <soap:Body>
-      <web:CheckIndia>
-        <web:RegistrationNumber>${RegID}</web:RegistrationNumber>
-        <web:username>saswat555</web:username>
-      </web:CheckIndia>
-    </soap:Body>
-  </soap:Envelope>
-`;
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:web="http://regcheck.org.uk">
+      <soap:Header/>
+      <soap:Body>
+        <web:CheckIndia>
+          <web:RegistrationNumber>${RegID}</web:RegistrationNumber>
+          <web:username>panda555</web:username>
+        </web:CheckIndia>
+      </soap:Body>
+    </soap:Envelope>
+  `;
 
   try {
     const response = await fetch('https://www.regcheck.org.uk/api/reg.asmx', {
@@ -723,19 +721,14 @@ router.post('/getCarReg', async (req, res) => {
 
     const responseBody = await response.text();
 
-    parseString(responseBody, (err, result) => {
+    parseString(responseBody, { explicitArray: false }, (err, result) => {
       if (err) {
         console.error('Error parsing XML:', err);
         res.status(500).json({ error: 'Error parsing XML' });
         return;
       }
 
-      // Log the parsed JSON object in the specified format
-      console.log(`HTTP/1.1 200 OK`);
-      console.log(`Content-Type: text/xml; charset=utf-8`);
-      console.log(`Content-Length: ${responseBody.length}`);
-      console.log(``);
-      console.log(JSON.stringify(result, null, 2));
+      res.status(200).json(result);
     });
 
   } catch (error) {
@@ -743,7 +736,8 @@ router.post('/getCarReg', async (req, res) => {
     res.status(500).json({ error: 'Error fetching data' });
   }
 });
-  
+
+
 
 module.exports = router;
 
