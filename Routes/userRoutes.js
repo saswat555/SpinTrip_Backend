@@ -3,7 +3,7 @@ const express = require('express');
 const uuid = require('uuid');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional } = require('../Models');
+const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host } = require('../Models');
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
@@ -1288,6 +1288,24 @@ router.post('/Cancel-Booking', authenticate, async (req, res) => {
   }
 });
 
+router.post('/getFeedback', authenticate, async (req, res) => {
+  try {
+    const { carId } = req.body;
+    const feedback = await Feedback.findAll(
+      { where: { carId: carId } }
+    );
+    if (feedback) {
+      res.status(201).json({ message: feedback });
+    }
+    else {
+      res.status(404).json({ message: 'No Feedback present' });
+    }
+  }
+  catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+
+});
 //User-Bookings
 router.get('/User-Bookings', authenticate, async (req, res) => {
   try {
@@ -1296,7 +1314,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
     if (booking) {
       const userBooking = booking.map(async (bookings) => {
         const bk = {
-          bookingId: bookings.BookingId,
+          bookingId: bookings.Bookingid,
           carId: bookings.carid,
           id: bookings.id,
           status: bookings.status,
@@ -1366,7 +1384,7 @@ router.post('/booking-completed', authenticate, async (req, res) => {
 //Rating
 router.post('/rating', authenticate, async (req, res) => {
   try {
-    let { bookingId, rating } = req.body;
+    let { bookingId, rating, feedback } = req.body;
     if (!rating) {
       rating = 5;
     }
@@ -1396,6 +1414,30 @@ router.post('/rating', authenticate, async (req, res) => {
 
     let new_rating = (parseFloat(rating) + parseFloat(car.rating * (bookingCount - 1))) / bookingCount;
     car.update({ rating: new_rating });
+    const car_ratings = await Car.sum('rating', {
+      where: {
+        hostId: car.hostId,
+      }
+    });
+    Host.update(
+      { rating: car_ratings },
+      { where: { id: car.hostId } }
+    );
+    
+    if(feedback){
+      Feedback.create({
+        carId: car.carid,  
+        userId: userId,
+        hostId: car.hostId,
+        rating: rating,
+        comment: feedback
+      }).then(feedback => {
+        console.log('Feedback created:', feedback);
+      }).catch(error => {
+        console.error('Error creating feedback:', error);
+      });
+      
+    }
     res.status(201).json( { message: 'Thank you for your response' } );
   }
   catch (error) {
