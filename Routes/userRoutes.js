@@ -1419,11 +1419,10 @@ router.post('/rating', authenticate, async (req, res) => {
         hostId: car.hostId,
       }
     });
-    Host.update(
+    const host = await User.update(
       { rating: car_ratings },
       { where: { id: car.hostId } }
     );
-    
     if(feedback){
       Feedback.create({
         carId: car.carid,  
@@ -1432,13 +1431,12 @@ router.post('/rating', authenticate, async (req, res) => {
         rating: rating,
         comment: feedback
       }).then(feedback => {
-        console.log('Feedback created:', feedback);
+        res.status(201).json( { message: 'Thank you for your response' } );
       }).catch(error => {
-        console.error('Error creating feedback:', error);
+        res.status(400).json({ message: 'Error creating feedback' })
       });
       
     }
-    res.status(201).json( { message: 'Thank you for your response' } );
   }
   catch (error) {
     console.error(error);
