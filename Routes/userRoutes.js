@@ -52,7 +52,7 @@ router.post('/verify-otp', async (req, res) => {
     const user = await User.findOne({ where: { phone } });
     const token = generateToken(user);
     const id = user.id;
-    
+
     return res.json({ message: 'OTP verified successfully', id, token });
   } else {
     return res.status(401).json({ message: 'Invalid OTP' });
@@ -72,7 +72,7 @@ router.get('/profile', authenticate, async (req, res) => {
     }
 
     const additionalInfo = await UserAdditional.findByPk(userId);
-    
+
     // Check if a folder exists for the user in the uploads directory
 
     const userFolder = path.join('./uploads', String(userId));
@@ -95,7 +95,7 @@ router.get('/profile', authenticate, async (req, res) => {
           aadhar: aadharFile
         }
         res.json({
-          user:user,
+          user: user,
           profile,
           aadharFile,
           dlFile
@@ -159,15 +159,15 @@ router.put('/profile', authenticate, async (req, res) => {
     // Update additional user information
     const { dlNumber, fullName, aadharId, address, currentAddressVfId, mlData } = req.body;
 
-     await UserAdditional.update({
-        id: userId,
-        Dlverification: dlNumber,
-        FullName: fullName,
-        AadharVfid: aadharId,
-        Address: address,
-        CurrentAddressVfid: currentAddressVfId,
-        ml_data: mlData
-      }, { where: { id: userId } });
+    await UserAdditional.update({
+      id: userId,
+      Dlverification: dlNumber,
+      FullName: fullName,
+      AadharVfid: aadharId,
+      Address: address,
+      CurrentAddressVfid: currentAddressVfId,
+      ml_data: mlData
+    }, { where: { id: userId } });
 
     res.status(200).json({ message: 'Profile Updated successfully' });
   } catch (error) {
@@ -202,7 +202,7 @@ router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCoun
       await UserAdditional.update({
         dl: dlFile[0].destination,
         aadhar: aadharFile[0].destination,
-        verification_status:1
+        verification_status: 1
       }, { where: { id: userId } });
     }
 
@@ -403,7 +403,6 @@ router.post('/findcars', authenticate, async (req, res) => {
             ],
           },
         ],
-        bookingId: { [Op.eq]: null },
       },
       include: [Car],
     });
@@ -418,67 +417,167 @@ router.post('/findcars', authenticate, async (req, res) => {
         // Skip or handle the error appropriately if Car data is not found
         return null;
       }
+      const check_booking = await Booking.findOne({
+        where: {
+          carid: carId,
+          [Op.and]: [{
+            [Op.or]: [
+              {
+                [Op.and]: [
+                  {
+                    startTripDate: {
+                      [Op.lt]: startDate,
+                    },
+                  },
+                  {
+                    endTripDate: {
+                      [Op.gt]: endDate,
+                    },
+                  },
+                ],
+              },
+              {
+                [Op.or]: [
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { startTripDate: startDate },
+                          { startTripDate: null },
+                        ],
+                      },
+                      {
+
+                        [Op.or]: [
+                          { startTripTime: { [Op.lte]: startTime } },
+                          { startTripTime: null },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { endTripDate: endDate },
+                          { endTripDate: null },
+                        ],
+                      },
+                      {
+                        [Op.or]: [
+                          { endTripTime: { [Op.gte]: endTime } },
+                          { endTripTime: null },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            [Op.or]: [
+              { status: { [Op.eq]: 1 } },
+              { status: { [Op.eq]: 2 } },
+            ],
+          },
+          ],
+        },
+      }
+      );
+      if (check_booking) {
+        return null;
+      }
       const carAdditional = await CarAdditional.findOne({ where: { carid: carId } });
-      // const carFolder = path.join('./uploads/host/CarAdditional', carId);
-      // let carImages;
-      // if (fs.existsSync(carFolder)) {
-      //   const files = fs.readdirSync(carFolder);
-      //   carImages = files.map(file => `http://106.51.16.163:2000/uploads/host/CarAdditional/${carId}/${file}`);
-      // } 
-      // else{
-      //   carImages = null
-      // }
 
       // Fetch the Pricing data for the Car
       const cph = await Pricing.findOne({ where: { carid: carId } });
-      let availableCar = {
-        carId: car.carid,
-        carModel: car.carmodel,
-        type: car.type,
-        brand: car.brand,
-        variant: car.variant,
-        color: car.color,
-        chassisNo: car.chassisno,
-        rcNumber: car.Rcnumber,
-        bodyType: car.bodytype,
-        hostId: car.hostId,
-        rating: car.rating,
-        registrationYear: car.Registrationyear,
-        horsePower: carAdditional.HorsePower,
-        ac: carAdditional.AC,
-        musicSystem: carAdditional.Musicsystem,
-        autoWindow: carAdditional.Autowindow,
-        sunRoof: carAdditional.Sunroof,
-        touchScreen: carAdditional.Touchscreen,
-        sevenSeater: carAdditional.Sevenseater,
-        reverseCamera: carAdditional.Reversecamera,
-        transmission: carAdditional.Transmission,
-        airBags: carAdditional.Airbags,
-        latitude: '',
-        longitude: '',
-        fuelType: carAdditional.FuelType,
-        additionalInfo: carAdditional.Additionalinfo, 
-        carImage1: carAdditional.carimage1, 
-        carImage2: carAdditional.carimage2, 
-        carImage3: carAdditional.carimage3, 
-        carImage4: carAdditional.carimage4, 
-        carImage5: carAdditional.carimage5 
+      let availableCar;
+      const carFolder = path.join('./uploads/host/CarAdditional', carId);
+      if (fs.existsSync(carFolder)) {
+        const files = fs.readdirSync(carFolder);
+        let carImages = files.map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${carId}/${file}`);
+        availableCar = {
+          carId: car.carid,
+          carModel: car.carmodel,
+          type: car.type,
+          brand: car.brand,
+          variant: car.variant,
+          color: car.color,
+          chassisNo: car.chassisno,
+          rcNumber: car.Rcnumber,
+          bodyType: car.bodytype,
+          hostId: car.hostId,
+          rating: car.rating,
+          registrationYear: car.Registrationyear,
+          horsePower: carAdditional.HorsePower,
+          ac: carAdditional.AC,
+          musicSystem: carAdditional.Musicsystem,
+          autoWindow: carAdditional.Autowindow,
+          sunRoof: carAdditional.Sunroof,
+          touchScreen: carAdditional.Touchscreen,
+          sevenSeater: carAdditional.Sevenseater,
+          reverseCamera: carAdditional.Reversecamera,
+          transmission: carAdditional.Transmission,
+          airBags: carAdditional.Airbags,
+          latitude: '',
+          longitude: '',
+          fuelType: carAdditional.FuelType,
+          additionalInfo: carAdditional.Additionalinfo,
+          carImage1: carImages[0] ? carImages[0] : null,
+          carImage2: carImages[1] ? carImages[1] : null,
+          carImage3: carImages[2] ? carImages[2] : null,
+          carImage4: carImages[3] ? carImages[3] : null,
+          carImage5: carImages[4] ? carImages[4] : null
+        }
+      }
+      else {
+        availableCar = {
+          carId: car.carid,
+          carModel: car.carmodel,
+          type: car.type,
+          brand: car.brand,
+          variant: car.variant,
+          color: car.color,
+          chassisNo: car.chassisno,
+          rcNumber: car.Rcnumber,
+          bodyType: car.bodytype,
+          hostId: car.hostId,
+          rating: car.rating,
+          registrationYear: car.Registrationyear,
+          horsePower: carAdditional.HorsePower,
+          ac: carAdditional.AC,
+          musicSystem: carAdditional.Musicsystem,
+          autoWindow: carAdditional.Autowindow,
+          sunRoof: carAdditional.Sunroof,
+          touchScreen: carAdditional.Touchscreen,
+          sevenSeater: carAdditional.Sevenseater,
+          reverseCamera: carAdditional.Reversecamera,
+          transmission: carAdditional.Transmission,
+          airBags: carAdditional.Airbags,
+          latitude: '',
+          longitude: '',
+          fuelType: carAdditional.FuelType,
+          additionalInfo: carAdditional.Additionalinfo,
+          carImage1: null,
+          carImage2: null,
+          carImage3: null,
+          carImage4: null,
+          carImage5: null
+        }
       }
       if (cph) {
         const hours = calculateTripHours(startDate, endDate, startTime, endTime);
         const amount = cph.costperhr * hours;
         const costperhr = cph.costperhr;
         // Combine the Car data with the pricing information
-        return { ...availableCar, pricing: { costPerHr: costperhr, hours: hours,amount: amount } };
+        return { ...availableCar, pricing: { costPerHr: costperhr, hours: hours, amount: amount } };
       } else {
         // Handle the case where Pricing data is not available
-        return { ...availableCar, pricing: null , carAdditional:carAdditional };
+        return { ...availableCar, pricing: null };
       }
     });
-
-
-    const carsWithPricing = await Promise.all(pricingPromises);
-
+    const carsWithPricing = (await Promise.all(pricingPromises)).filter(car => car !== null);
     res.status(200).json({ availableCars: carsWithPricing });
   } catch (error) {
     console.error(error);
@@ -609,14 +708,85 @@ router.post('/onecar', async (req, res) => {
       },
       include: [Car],
     });
-    if(availableListings){ 
-    // Extract car information from the listings
-    const availableCars = await Car.findOne({
-      where: {
-        carid: availableListings.carid,
+    if (availableListings) {
+      // Extract car information from the listings
+      const availableCars = await Car.findOne({
+        where: {
+          carid: availableListings.carid,
+        }
+      });
+      const check_booking = await Booking.findOne({
+        where: {
+          carid: carId,
+          [Op.and]: [{
+            [Op.or]: [
+              {
+                [Op.and]: [
+                  {
+                    startTripDate: {
+                      [Op.lt]: startDate,
+                    },
+                  },
+                  {
+                    endTripDate: {
+                      [Op.gt]: endDate,
+                    },
+                  },
+                ],
+              },
+              {
+                [Op.or]: [
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { startTripDate: startDate },
+                          { startTripDate: null },
+                        ],
+                      },
+                      {
+
+                        [Op.or]: [
+                          { startTripTime: { [Op.lte]: startTime } },
+                          { startTripTime: null },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    [Op.and]: [
+                      {
+                        [Op.or]: [
+                          { endTripDate: endDate },
+                          { endTripDate: null },
+                        ],
+                      },
+                      {
+                        [Op.or]: [
+                          { endTripTime: { [Op.gte]: endTime } },
+                          { endTripTime: null },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            [Op.or]: [
+              { status: { [Op.eq]: 1 } },
+              { status: { [Op.eq]: 2 } },
+            ],
+          },
+          ],
+        },
       }
-    });
-    // Calculate pricing for each available car
+      );
+      if (check_booking) {
+        return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
+      }
+      // Calculate pricing for each available car
       const cph = await Pricing.findOne({ where: { carid: availableCars.carid } });
       let cars = {
         carId: availableCars.carid,
@@ -636,12 +806,12 @@ router.post('/onecar', async (req, res) => {
         const amount = cph.costperhr * hours;
         const costperhr = cph.costperhr;
         // Include pricing information in the car object
-        res.status(200).json({  cars, pricing: { costPerHr: costperhr, hours: hours,amount: amount } });
+        res.status(200).json({ cars, pricing: { costPerHr: costperhr, hours: hours, amount: amount } });
       } else {
-        res.status(200).json({  cars, pricing: null });
+        res.status(200).json({ cars, pricing: null });
       }
     }
-    else{
+    else {
       res.status(400).json({ message: 'Car is not available' });
     }
 
@@ -795,7 +965,6 @@ router.post('/booking', authenticate, async (req, res) => {
             ],
           },
         ],
-        bookingId: { [Op.eq]: null },
       },
     });
     if (listing) {
@@ -975,28 +1144,28 @@ router.post('/extend-booking', authenticate, async (req, res) => {
   try {
     const { bookingId, newEndDate, newEndTime } = req.body;
     const userId = req.user.userid;
-    
+
     // Check if the booking exists
     const booking = await Booking.findOne({
       where: {
         Bookingid: bookingId,
         id: userId,
-        status: 2 
+        status: 2
       }
     });
 
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found or not active' });
-    }    
+    }
 
     // Check if the booking can be extended
     const currentEndDate = booking.endTripDate;
     const currentEndTime = booking.endTripTime;
-    
+
     if (newEndDate < currentEndDate || (newEndDate === currentEndDate && newEndTime <= currentEndTime)) {
       return res.status(400).json({ message: 'New end date and time must be after the current end date and time' });
     }
-    
+
     const listing = await Listing.findOne({
       where: {
         carid: booking.carid,
@@ -1187,30 +1356,30 @@ router.post('/extend-booking', authenticate, async (req, res) => {
         return res.status(400).json({ message: 'Selected car is not available for extension' });
       }
     }
-    else{
+    else {
       return res.status(400).json({ message: 'Car is not available' })
     }
     // Calculate additional hours
-    const additionalHours = calculateTripHours(currentEndDate, newEndDate,  currentEndTime, newEndTime);
-    
+    const additionalHours = calculateTripHours(currentEndDate, newEndDate, currentEndTime, newEndTime);
+
     // Retrieve pricing information for the car
     const cph = await Pricing.findOne({ where: { carid: booking.carid } });
-    
+
     // Calculate the additional amount
-    if(!cph){
+    if (!cph) {
       return res.status(400).json({ message: 'Car pricing is not available' });
     }
-    
+
     const additionalAmount = cph.costperhr * additionalHours;
 
     // Update booking with new end date, end time, and amount
     booking.endTripDate = newEndDate;
     booking.endTripTime = newEndTime;
     booking.amount += additionalAmount; // Assuming amount field exists in the Booking model
-    
+
     await Booking.update(
       { endTripDate: booking.endTripDate, endTripTime: booking.endTripTime, amount: booking.amount },
-      { where: { Bookingid: bookingId } } );
+      { where: { Bookingid: bookingId } });
 
     const bookings = {
       bookingId: booking.Bookingid,
@@ -1224,7 +1393,7 @@ router.post('/extend-booking', authenticate, async (req, res) => {
       startTripTime: booking.startTripTime,
       endTripTime: booking.endTripTime,
     }
-    
+
     res.status(200).json({ message: 'Booking extended successfully', bookings });
   } catch (error) {
     console.error(error);
@@ -1313,21 +1482,51 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
     const booking = await Booking.findAll({ where: { id: userId } })
     if (booking) {
       const userBooking = booking.map(async (bookings) => {
-        const bk = {
-          bookingId: bookings.Bookingid,
-          carId: bookings.carid,
-          id: bookings.id,
-          status: bookings.status,
-          amount: bookings.amount,
-          transactionId: bookings.Transactionid,
-          startTripDate: bookings.startTripDate,
-          endTripDate: bookings.endTripDate,
-          startTripTime: bookings.startTripTime,
-          endTripTime: bookings.endTripTime
+        const carFolder = path.join('./uploads/host/CarAdditional', bookings.carid);
+        let bk;
+        if (fs.existsSync(carFolder)) {
+          const files = fs.readdirSync(carFolder);
+          let carImages = files.map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${bookings.carid}/${file}`);
+          bk = {
+            bookingId: bookings.Bookingid,
+            carId: bookings.carid,
+            id: bookings.id,
+            status: bookings.status,
+            amount: bookings.amount,
+            transactionId: bookings.Transactionid,
+            startTripDate: bookings.startTripDate,
+            endTripDate: bookings.endTripDate,
+            startTripTime: bookings.startTripTime,
+            endTripTime: bookings.endTripTime,
+            carImage1: carImages[0] ? carImages[0] : null,
+            carImage2: carImages[1] ? carImages[1] : null,
+            carImage3: carImages[2] ? carImages[2] : null,
+            carImage4: carImages[3] ? carImages[3] : null,
+            carImage5: carImages[4] ? carImages[4] : null
+          }
+        }
+        else {
+          bk = {
+            bookingId: bookings.Bookingid,
+            carId: bookings.carid,
+            id: bookings.id,
+            status: bookings.status,
+            amount: bookings.amount,
+            transactionId: bookings.Transactionid,
+            startTripDate: bookings.startTripDate,
+            endTripDate: bookings.endTripDate,
+            startTripTime: bookings.startTripTime,
+            endTripTime: bookings.endTripTime,
+            carImage1: null,
+            carImage2: null,
+            carImage3: null,
+            carImage4: null,
+            carImage5: null
+          }
         }
         return { ...bk };
       });
-      const userBookings  = await Promise.all(userBooking);  
+      const userBookings = await Promise.all(userBooking);
       res.status(201).json({ message: userBookings });
     }
     else {
@@ -1423,19 +1622,19 @@ router.post('/rating', authenticate, async (req, res) => {
       { rating: car_ratings },
       { where: { id: car.hostId } }
     );
-    if(feedback){
+    if (feedback) {
       Feedback.create({
-        carId: car.carid,  
+        carId: car.carid,
         userId: userId,
         hostId: car.hostId,
         rating: rating,
         comment: feedback
       }).then(feedback => {
-        res.status(201).json( { message: 'Thank you for your response' } );
+        res.status(201).json({ message: 'Thank you for your response' });
       }).catch(error => {
         res.status(400).json({ message: 'Error creating feedback' })
       });
-      
+
     }
   }
   catch (error) {
