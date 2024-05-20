@@ -677,9 +677,9 @@ router.post('/booking', authenticate, async (req, res) => {
         id: userId,
       }
     });
-    if (userAdd.verification_status != 2) {
-      return res.status(400).json({ message: 'Your DL and Aadhar is not Approved' });
-    }
+    // if (userAdd.verification_status != 2) {
+    //   return res.status(400).json({ message: 'Your DL and Aadhar is not Approved' });
+    // }
     const listing = await Listing.findOne({
       where: {
         carid: carId,
