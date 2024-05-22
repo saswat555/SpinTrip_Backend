@@ -3,6 +3,8 @@ const bcrypt = require('bcrypt');
 const uuid = require('uuid');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
+const { Sequelize, Op } = require('sequelize');
+const { fn, col, sum, count } = require('sequelize');
 const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand } = require('../Models');
 const { and, TIME } = require('sequelize');
 const { sendOTP, generateOTP } = require('../Controller/hostController');
@@ -554,7 +556,39 @@ router.put('/listing', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Error updating listing' });
   }
 });
+router.post('/monthly-data', authenticate, async (req, res) => {
+  const { carId } = req.body;
+  try{
+  const monthlyData = await Booking.findAll({
+    attributes: [
+      [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('endTripDate')), 'month'],
+      [Sequelize.fn('SUM', Sequelize.col('amount')), 'totalAmount'],
+      [Sequelize.fn('COUNT', Sequelize.col('Bookingid')), 'numberOfBookings']
+    ],
+    where: {
+      carid: carId,
+      endTripDate: {
+        [Op.ne]: null // Ensure the Date is not null
+      },
+      status: '3',
+    },
+    group: [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('endTripDate'))],
+    order: [[Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('endTripDate')), 'ASC']]
+  });
 
+  const formattedMonthlyData = monthlyData.map(row => ({
+    month: row.get('month'),
+    totalAmount: row.get('totalAmount'),
+    numberOfBookings: row.get('numberOfBookings')
+  }));
+
+  res.status(200).json({
+    monthlyData: formattedMonthlyData,
+  });
+  } catch (error) {
+    console.error('Error fetching monthly data:', error);
+  }
+});
 //Host-Bookings
 router.get('/host-bookings', authenticate, async (req, res) => {
   try {
