@@ -9,7 +9,9 @@ module.exports = (sequelize, DataTypes) => {
       CurrentAddressVfid: { type: DataTypes.STRING, unique: true },
       ml_data: DataTypes.BLOB,
       dl: DataTypes.STRING,
-      aadhar: DataTypes.STRING
+      aadhar: DataTypes.STRING,
+      latitude: DataTypes.STRING,
+      longitude: DataTypes.STRING
 
     });
  
