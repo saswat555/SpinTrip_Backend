@@ -413,20 +413,63 @@ router.get('/listing', authenticate, async (req, res) => {
     try {
       const listing = await Listing.findAll({ where: { hostid: hostid } });
       const listings = listing.map(async (lstg) => {
-        const lk = {
-          id: lstg.id,
-          carId: lstg.carid,
-          hostId: lstg.hostid,
-          details: lstg.details,
-          startDate: lstg.start_date,
-          startTime: lstg.start_time,
-          endDate: lstg.end_date,
-          endTime: lstg.end_time,
-          pauseTimeStartDate: lstg.pausetime_start_date,
-          pauseTimeEndDate: lstg.pausetime_end_date,
-          pauseTimeStartTime: lstg.pausetime_start_time,
-          pauseTimeEndTime: lstg.pausetime_end_time,
-          bookingId: lstg.bookingId
+        let car = await Car.findOne({ where: { carid: lstg.carid, hostId: hostid } });
+        if (!car) {
+          return;
+        }
+        let carFolder = path.join('./uploads/host/CarAdditional', lstg.carid);
+        let lk;
+        if (fs.existsSync(carFolder)) {
+          const files = fs.readdirSync(carFolder);
+          let carImages = files.map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${lstg.carid}/${file}`);
+          lk = {
+            id: lstg.id,
+            carId: lstg.carid,
+            hostId: lstg.hostid,
+            details: lstg.details,
+            startDate: lstg.start_date,
+            startTime: lstg.start_time,
+            endDate: lstg.end_date,
+            endTime: lstg.end_time,
+            pauseTimeStartDate: lstg.pausetime_start_date,
+            pauseTimeEndDate: lstg.pausetime_end_date,
+            pauseTimeStartTime: lstg.pausetime_start_time,
+            pauseTimeEndTime: lstg.pausetime_end_time,
+            bookingId: lstg.bookingId,
+            rcNumber: car.Rcnumber,
+            type: car.type,
+            carModel: car.carmodel,
+            carImage1: carImages[0] ? carImages[0] : null,
+            carImage2: carImages[1] ? carImages[1] : null,
+            carImage3: carImages[2] ? carImages[2] : null,
+            carImage4: carImages[3] ? carImages[3] : null,
+            carImage5: carImages[4] ? carImages[4] : null
+          }
+        }  
+        else{
+          lk = {
+            id: lstg.id,
+            carId: lstg.carid,
+            hostId: lstg.hostid,
+            details: lstg.details,
+            startDate: lstg.start_date,
+            startTime: lstg.start_time,
+            endDate: lstg.end_date,
+            endTime: lstg.end_time,
+            pauseTimeStartDate: lstg.pausetime_start_date,
+            pauseTimeEndDate: lstg.pausetime_end_date,
+            pauseTimeStartTime: lstg.pausetime_start_time,
+            pauseTimeEndTime: lstg.pausetime_end_time,
+            bookingId: lstg.bookingId,
+            rcNumber: car.Rcnumber,
+            type: car.type,
+            carModel: car.carmodel,
+            carImage1: null,
+            carImage2: null,
+            carImage3: null,
+            carImage4: null,
+            carImage5: null
+          }
         }
         return { ...lk };
       });
@@ -558,33 +601,33 @@ router.put('/listing', authenticate, async (req, res) => {
 });
 router.post('/monthly-data', authenticate, async (req, res) => {
   const { carId } = req.body;
-  try{
-  const monthlyData = await Booking.findAll({
-    attributes: [
-      [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('endTripDate')), 'month'],
-      [Sequelize.fn('SUM', Sequelize.col('amount')), 'totalAmount'],
-      [Sequelize.fn('COUNT', Sequelize.col('Bookingid')), 'numberOfBookings']
-    ],
-    where: {
-      carid: carId,
-      endTripDate: {
-        [Op.ne]: null // Ensure the Date is not null
+  try {
+    const monthlyData = await Booking.findAll({
+      attributes: [
+        [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('endTripDate')), 'month'],
+        [Sequelize.fn('SUM', Sequelize.col('amount')), 'totalAmount'],
+        [Sequelize.fn('COUNT', Sequelize.col('Bookingid')), 'numberOfBookings']
+      ],
+      where: {
+        carid: carId,
+        endTripDate: {
+          [Op.ne]: null // Ensure the Date is not null
+        },
+        status: '3',
       },
-      status: '3',
-    },
-    group: [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('endTripDate'))],
-    order: [[Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('endTripDate')), 'ASC']]
-  });
+      group: [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('endTripDate'))],
+      order: [[Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('endTripDate')), 'ASC']]
+    });
 
-  const formattedMonthlyData = monthlyData.map(row => ({
-    month: row.get('month'),
-    totalAmount: row.get('totalAmount'),
-    numberOfBookings: row.get('numberOfBookings')
-  }));
+    const formattedMonthlyData = monthlyData.map(row => ({
+      month: row.get('month'),
+      totalAmount: row.get('totalAmount'),
+      numberOfBookings: row.get('numberOfBookings')
+    }));
 
-  res.status(200).json({
-    monthlyData: formattedMonthlyData,
-  });
+    res.status(200).json({
+      monthlyData: formattedMonthlyData,
+    });
   } catch (error) {
     console.error('Error fetching monthly data:', error);
   }
@@ -669,6 +712,25 @@ router.post('/rating', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+router.post('/getFeedback', authenticate, async (req, res) => {
+  try {
+    const { carId } = req.body;
+    const feedback = await Feedback.findAll(
+      { where: { carId: carId } }
+    );
+    if (feedback) {
+      res.status(201).json({ message: feedback });
+    }
+    else {
+      res.status(404).json({ message: 'No Feedback present' });
+    }
+  }
+  catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+
+});
 router.post('/getCarAdditional', authenticate, async (req, res) => {
   const { carId } = req.body;
   const hostId = req.user.id; // Assuming the host ID is part of the authenticated user details
@@ -702,6 +764,9 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
       carImage4: carAdditional.carimage4,
       carImage5: carAdditional.carimage5,
       verificationStatus: carAdditional.verification_status,
+      rcNumber: car.Rcnumber,
+      type: car.type,
+      carModel: car.carmodel,
     }
     // Path to the car's folder in the uploads directory
     const carFolder = path.join('./uploads/host/CarAdditional', carId);
