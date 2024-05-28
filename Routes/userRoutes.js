@@ -84,21 +84,25 @@ router.get('/profile', authenticate, async (req, res) => {
         // Filter and create URLs for Aadhar and DL files
         const aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `http://54.206.23.199:2000/uploads/${userId}/${file}`);
         const dlFile = files.filter(file => file.includes('dlFile')).map(file => `http://54.206.23.199:2000/uploads/${userId}/${file}`);
+        const profilePic = files.filter(file => file.includes('profilePic')).map(file => `http://54.206.23.199:2000/uploads/${userId}/${file}`);
         let profile = {
           id: additionalInfo.id,
           dlNumber: additionalInfo.Dlverification,
           fullName: additionalInfo.FullName,
+          email: additionalInfo.Email,
           aadharNumber: additionalInfo.AadharVfid,
           address: additionalInfo.Address,
           verificationStatus: additionalInfo.verification_status,
           dl: dlFile,
-          aadhar: aadharFile
+          aadhar: aadharFile,
+          profilePic: profilePic
         }
         res.json({
           user: user,
           profile,
           aadharFile,
-          dlFile
+          dlFile,
+          profilePic
         });
       }
       else {
@@ -106,11 +110,13 @@ router.get('/profile', authenticate, async (req, res) => {
           id: additionalInfo.id,
           dlNumber: additionalInfo.Dlverification,
           fullName: additionalInfo.FullName,
+          email: additionalInfo.Email,
           aadharNumber: additionalInfo.AadharVfid,
           address: additionalInfo.Address,
           verificationStatus: additionalInfo.verification_status,
           dl: 'null',
-          aadhar: 'null'
+          aadhar: 'null',
+          profilePic: 'null'
         }
         res.json({
           phone: user.phone,
@@ -125,17 +131,19 @@ router.get('/profile', authenticate, async (req, res) => {
         id: additionalInfo.id,
         dlNumber: additionalInfo.Dlverification,
         fullName: additionalInfo.FullName,
+        email: additionalInfo.Email,
         aadharNumber: additionalInfo.AadharVfid,
         address: additionalInfo.Address,
         verificationStatus: additionalInfo.verification_status,
         dl: 'null',
-        aadhar: 'null'
+        aadhar: 'null',
+        profilePic: 'null'
+
       }
       res.json({
         phone: user.phone,
         role: user.role,
         profile,
-
       });
     }
 
@@ -157,13 +165,13 @@ router.put('/profile', authenticate, async (req, res) => {
     }
 
     // Update additional user information
-    const { dlNumber, fullName, aadharId, address, currentAddressVfId, mlData } = req.body;
-
+    const { dlNumber, fullName, aadharId, email, address, currentAddressVfId, mlData } = req.body;
     await UserAdditional.update({
       id: userId,
       Dlverification: dlNumber,
       FullName: fullName,
       AadharVfid: aadharId,
+      Email: email,
       Address: address,
       CurrentAddressVfid: currentAddressVfId,
       ml_data: mlData
@@ -176,7 +184,7 @@ router.put('/profile', authenticate, async (req, res) => {
   }
 });
 
-router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCount: 1 }, { name: 'dlFile', maxCount: 1 }]), async (req, res) => {
+router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCount: 1 }, { name: 'dlFile', maxCount: 1 }, { name: 'profilePic', maxCount: 1 }]), async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findByPk(userId);
@@ -188,11 +196,12 @@ router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCoun
     if (req.files) {
       if (req.files['aadharFile']) files.push(req.files['aadharFile'][0]);
       if (req.files['dlFile']) files.push(req.files['dlFile'][0]);
+      if (req.files['profilePic']) files.push(req.files['profilePic'][0]);
     }
 
 
     // Update additional user information
-    const { dlFile, aadharFile } = req.files;
+    const { dlFile, aadharFile, profilePic } = req.files;
     if (dlFile || aadharFile) {
 
       // await user.update({
@@ -202,7 +211,18 @@ router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCoun
       await UserAdditional.update({
         dl: dlFile[0].destination,
         aadhar: aadharFile[0].destination,
+        profilepic: profilePic[0].destination,
         verification_status: 1
+      }, { where: { id: userId } });
+    }
+    if (profilePic) {
+
+      // await user.update({
+      //   verification_status:1
+      // }, { where: { id: userId } });
+
+      await UserAdditional.update({
+        profilepic: profilePic[0].destination,
       }, { where: { id: userId } });
     }
 
@@ -254,7 +274,7 @@ router.post('/signup', async (req, res) => {
 
 
 //Get All Cars
-router.get('/cars', authenticate, async (req, res) => {
+router.get('/cars', async (req, res) => {
   const cars = await Car.findAll();
   const pricingPromises = cars.map(async (car) => {
     const cph = await Pricing.findOne({ where: { carid: car.carid } });
@@ -266,6 +286,8 @@ router.get('/cars', authenticate, async (req, res) => {
       variant: car.variant,
       color: car.color,
       chassisNo: car.chassisno,
+      mileage: car.mileage,
+      registrationYear: car.Registrationyear,
       rcNumber: car.Rcnumber,
       bodyType: car.bodytype,
       hostId: car.hostId,
@@ -534,6 +556,7 @@ router.post('/findcars', authenticate, async (req, res) => {
           bodyType: car.bodytype,
           hostId: car.hostId,
           rating: car.rating,
+          mileage: car.mileage,
           registrationYear: car.Registrationyear,
           horsePower: carAdditional.HorsePower,
           ac: carAdditional.AC,
@@ -569,6 +592,7 @@ router.post('/findcars', authenticate, async (req, res) => {
           bodyType: car.bodytype,
           hostId: car.hostId,
           rating: car.rating,
+          mileage: car.mileage,
           registrationYear: car.Registrationyear,
           horsePower: carAdditional.HorsePower,
           ac: carAdditional.AC,
@@ -580,6 +604,19 @@ router.post('/findcars', authenticate, async (req, res) => {
           reverseCamera: carAdditional.Reversecamera,
           transmission: carAdditional.Transmission,
           airBags: carAdditional.Airbags,
+          petFriendly: carAdditional.PetFriendly,
+          powerSteering: carAdditional.PowerSteering,
+          abs: carAdditional.ABS,
+          tractionControl: carAdditional.tractionControl,
+          fullBootSpace: carAdditional.fullBootSpace,
+          keylessEntry: carAdditional.KeylessEntry,
+          airPurifier: carAdditional.airPurifier,
+          cruiseControl: carAdditional.cruiseControl,
+          voiceControl: carAdditional.voiceControl,
+          usbCharger: carAdditional.usbCharger,
+          bluetooth: carAdditional.bluetooth,
+          airFreshner: carAdditional.airFreshner,
+          ventelatedFrontSeat: carAdditional.ventelatedFrontSeat,
           latitude: '',
           longitude: '',
           fuelType: carAdditional.FuelType,
@@ -849,7 +886,8 @@ router.post('/onecar', async (req, res) => {
         rcNumber: availableCars.Rcnumber,
         bodyType: availableCars.bodytype,
         hostId: availableCars.hostId,
-        rating: availableCars.rating
+        rating: availableCars.rating,
+        mileage: availableCars.mileage,
       }
       if (cph) {
         const hours = calculateTripHours(startDate, endDate, startTime, endTime);
@@ -1183,6 +1221,20 @@ router.post('/getCarAdditional', async (req, res) => {
       reverseCamera: carAdditional.Reversecamera,
       transmission: carAdditional.Transmission,
       airBags: carAdditional.Airbags,
+      fuelType: carAdditional.FuelType,
+      petFriendly: carAdditional.PetFriendly,
+      powerSteering: carAdditional.PowerSteering,
+      abs: carAdditional.ABS,
+      tractionControl: carAdditional.tractionControl,
+      fullBootSpace: carAdditional.fullBootSpace,
+      keylessEntry: carAdditional.KeylessEntry,
+      airPurifier: carAdditional.airPurifier,
+      cruiseControl: carAdditional.cruiseControl,
+      voiceControl: carAdditional.voiceControl,
+      usbCharger: carAdditional.usbCharger,
+      bluetooth: carAdditional.bluetooth,
+      airFreshner: carAdditional.airFreshner,
+      ventelatedFrontSeat: carAdditional.ventelatedFrontSeat,
       carImage1: carAdditional.carimage1,
       carImage2: carAdditional.carimage2,
       carImage3: carAdditional.carimage3,
@@ -1583,6 +1635,14 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
     if (booking) {
       const userBooking = booking.map(async (bookings) => {
         const carFolder = path.join('./uploads/host/CarAdditional', bookings.carid);
+        const car = await Car.findOne({
+          where: {
+            carid: booking.carid,
+          }
+        });
+        if (!car) {
+          return;
+        }
         let bk;
         if (fs.existsSync(carFolder)) {
           const files = fs.readdirSync(carFolder);
@@ -1598,6 +1658,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             endTripDate: bookings.endTripDate,
             startTripTime: bookings.startTripTime,
             endTripTime: bookings.endTripTime,
+            carModel: car.carmodel,
             carImage1: carImages[0] ? carImages[0] : null,
             carImage2: carImages[1] ? carImages[1] : null,
             carImage3: carImages[2] ? carImages[2] : null,
@@ -1617,6 +1678,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             endTripDate: bookings.endTripDate,
             startTripTime: bookings.startTripTime,
             endTripTime: bookings.endTripTime,
+            carModel: car.carmodel,
             carImage1: null,
             carImage2: null,
             carImage3: null,
@@ -1688,10 +1750,14 @@ router.post('/rating', authenticate, async (req, res) => {
       rating = 5;
     }
     const userId = req.user.id;
+    const user = await UserAdditional.findOne({
+      where: {
+        id: userId,
+      }
+    });
     const booking = await Booking.findOne({
       where: {
         Bookingid: bookingId,
-        //id: userId,
       }
     });
     if (!booking) {
@@ -1726,6 +1792,7 @@ router.post('/rating', authenticate, async (req, res) => {
       Feedback.create({
         carId: car.carid,
         userId: userId,
+        userName: user.FullName,
         hostId: car.hostId,
         rating: rating,
         comment: feedback
