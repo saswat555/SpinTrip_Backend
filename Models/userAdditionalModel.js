@@ -11,9 +11,7 @@ module.exports = (sequelize, DataTypes) => {
       ml_data: DataTypes.BLOB,
       profilepic: DataTypes.STRING,
       dl: DataTypes.STRING,
-      aadhar: DataTypes.STRING,
-      latitude: DataTypes.STRING,
-      longitude: DataTypes.STRING
+      aadhar: DataTypes.STRING
 
     });
  

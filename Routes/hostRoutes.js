@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const axios = require('axios');
 const uuid = require('uuid');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
@@ -27,6 +28,20 @@ const carImageStorage = multer.diskStorage({
     cb(null, `carImage_${imageNumber}${path.extname(file.originalname)}`);
   }
 });
+
+const GOOGLE_MAPS_API_KEY = 'AIzaSyAXccf05saQXjwGUQ6gzaEI8ev5rMY7zZE';
+async function geocodeAddress(address) {
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+  const response = await axios.get(url);
+  if (response.data.status === 'OK') {
+    const location = response.data.results[0].geometry.location;
+    console.log(response.data);
+    return { lat: location.lat, lng: location.lng };
+  } else {
+    throw new Error('Geocoding failed.');
+  }
+}
+
 
 const uploadCarImages = multer({ storage: carImageStorage }).fields(
   Array.from({ length: 5 }, (_, i) => ({ name: `carImage_${i + 1}` }))
@@ -186,6 +201,7 @@ router.post('/car', authenticate, async (req, res) => {
     engineNumber,
     registrationYear,
     bodyType,
+    address,
     timeStamp } = req.body;
 
   try {
@@ -196,6 +212,13 @@ router.post('/car', authenticate, async (req, res) => {
       return res.status(401).json({ message: 'No Host found' });
     }
     const carid = uuid.v4();
+    let lat, lng;
+    if(address)
+    {
+      ({ lat, lng } = await geocodeAddress(address)); 
+    console.log(lat, lng);
+    }
+    
     const car = await Car.create({
       carmodel: carModel,
       type: type,
@@ -242,6 +265,8 @@ router.post('/car', authenticate, async (req, res) => {
       id: listingid,
       carid: car.carid,
       hostid: carhostid,
+      latitude: lat, 
+      longitude: lng,
     })
 
     let postedCar = {
