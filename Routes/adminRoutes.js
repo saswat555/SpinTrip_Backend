@@ -7,6 +7,7 @@ const path = require('path');
 const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
 const fs = require('fs');
 const router = express.Router();
+const chatController = require('../Controller/chatController');
 
 //Login
   
@@ -94,7 +95,9 @@ router.get('/profile', authenticate, async (req, res) => {
     res.status(500).json({ message: error });
   }
 });
-
+// Chat routes
+router.get('/chat/all', chatController.getAllMessages);
+router.post('/chat/flag/:messageId', chatController.flagMessage);
 //Get All Cars
 router.get('/cars', authenticate, async (req, res) => {
   try {  

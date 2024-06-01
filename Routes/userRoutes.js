@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host } = require('../Models');
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { initiatePayment,checkPaymentStatus } = require('../Controller/paymentController');
+const chatController = require('../Controller/chatController');
 
 const { Op } = require('sequelize');
 const crypto = require('crypto');
@@ -309,7 +310,9 @@ router.get('/cars', async (req, res) => {
   const carsWithPricing = await Promise.all(pricingPromises);
   res.status(200).json({ "message": "All available cars", cars: carsWithPricing })
 })
-
+//chat
+router.post('/chat/send', chatController.sendMessage);
+router.get('/chat/:bookingId', chatController.getMessagesByBookingId);
 //Find Cars
 router.post('/findcars', authenticate, async (req, res) => {
   const { startDate, endDate, startTime, endTime } = req.body;

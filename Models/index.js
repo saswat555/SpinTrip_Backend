@@ -42,6 +42,8 @@ db.Brand = require('./brandModel')(sequelize, DataTypes);
 db.Listing = require('./listingModel')(sequelize, DataTypes);
 db.Pricing = require('./pricingModel')(sequelize, DataTypes);
 db.Feedback = require('./feedback')(sequelize, DataTypes);
+db.Chat = require('./chatModel')(sequelize, DataTypes);
+
 // Set up associations
 const associateModels = () => {
   const { User, Admin, Car, Host, UserAdditional, Booking, Listing, CarAdditional, Feedback } = sequelize.models;

@@ -15,6 +15,7 @@ const path = require('path');
 const { parseString } = require('xml2js');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const router = express.Router();
+const chatController = require('../Controller/chatController');
 const carImageStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const carId = req.body.carId;
@@ -291,6 +292,10 @@ router.post('/car', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Error Adding car' });
   }
 });
+
+//chat
+router.post('/chat/send', chatController.sendMessage);
+router.get('/chat/:bookingId', chatController.getMessagesByBookingId);
 
 router.post('/createListing', authenticate, async (req, res) => {
   const { carId } = req.body;
