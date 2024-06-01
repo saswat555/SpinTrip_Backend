@@ -1648,7 +1648,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
         const carFolder = path.join('./uploads/host/CarAdditional', bookings.carid);
         const car = await Car.findOne({
           where: {
-            carid: booking.carid,
+            carid: bookings.carid,
           }
         });
         if (!car) {
