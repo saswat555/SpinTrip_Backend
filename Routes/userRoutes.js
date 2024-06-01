@@ -546,7 +546,11 @@ router.post('/findcars', authenticate, async (req, res) => {
       const carFolder = path.join('./uploads/host/CarAdditional', carId);
       if (fs.existsSync(carFolder)) {
         const files = fs.readdirSync(carFolder);
+<<<<<<< HEAD
         let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`);
+=======
+        let carImages = files.map(file => `${process.env.BASE_URL}s/uploads/host/CarAdditional/${carId}/${file}`);
+>>>>>>> e15f7a2 (added files url in .env file)
         availableCar = {
           carId: car.carid,
           carModel: car.carmodel,
