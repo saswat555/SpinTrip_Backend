@@ -3,12 +3,14 @@ const express = require('express');
 const uuid = require('uuid');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host } = require('../Models');
+const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host } = require('../Models');
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
-const axios = require('axios');
+const { initiatePayment,checkPaymentStatus } = require('../Controller/paymentController');
+
 const { Op } = require('sequelize');
 const crypto = require('crypto');
 const multer = require('multer');
+const axios = require('axios');
 const path = require('path');
 const router = express.Router();
 const storage = multer.diskStorage({
@@ -26,7 +28,7 @@ const storage = multer.diskStorage({
 });
 const fs = require('fs');
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyAXccf05saQXjwGUQ6gzaEI8ev5rMY7zZE';
+
 const upload = multer({ storage: storage });
 //Login
 router.post('/login', async (req, res) => {
@@ -83,9 +85,9 @@ router.get('/profile', authenticate, async (req, res) => {
       if (files) {
 
         // Filter and create URLs for Aadhar and DL files
-        const aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `http://54.206.23.199:2000/uploads/${userId}/${file}`);
-        const dlFile = files.filter(file => file.includes('dlFile')).map(file => `http://54.206.23.199:2000/uploads/${userId}/${file}`);
-        const profilePic = files.filter(file => file.includes('profilePic')).map(file => `http://54.206.23.199:2000/uploads/${userId}/${file}`);
+        const aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
+        const dlFile = files.filter(file => file.includes('dlFile')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
+        const profilePic = files.filter(file => file.includes('profilePic')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
         let profile = {
           id: additionalInfo.id,
           dlNumber: additionalInfo.Dlverification,
@@ -129,24 +131,24 @@ router.get('/profile', authenticate, async (req, res) => {
     }
     else {
       let profile = {
-        id: additionalInfo.id,
-        dlNumber: additionalInfo.Dlverification,
-        fullName: additionalInfo.FullName,
-        email: additionalInfo.Email,
-        aadharNumber: additionalInfo.AadharVfid,
-        address: additionalInfo.Address,
-        verificationStatus: additionalInfo.verification_status,
+        id: additionalInfo?.id || null,
+        dlNumber: additionalInfo?.Dlverification || null,
+        fullName: additionalInfo?.FullName || null,
+        email: additionalInfo?.Email || null,
+        aadharNumber: additionalInfo?.AadharVfid || null,
+        address: additionalInfo?.Address || null,
+        verificationStatus: additionalInfo?.verification_status || null,
         dl: 'null',
         aadhar: 'null',
         profilePic: 'null'
-
-      }
+      };
       res.json({
-        phone: user.phone,
-        role: user.role,
+        phone: user?.phone || null,
+        role: user?.role || null,
         profile,
       });
     }
+
 
   } catch (error) {
     console.error(error);
@@ -192,6 +194,7 @@ router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCoun
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
     let files = [];
     if (req.files) {
       if (req.files['aadharFile']) files.push(req.files['aadharFile'][0]);
@@ -211,6 +214,7 @@ router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCoun
       await UserAdditional.update({
         dl: dlFile[0].destination,
         aadhar: aadharFile[0].destination,
+        profilepic: profilePic[0].destination,
         verification_status: 1
       }, { where: { id: userId } });
     }
@@ -308,7 +312,7 @@ router.get('/cars', async (req, res) => {
 
 //Find Cars
 router.post('/findcars', authenticate, async (req, res) => {
-  const { startDate, endDate, startTime, endTime, latitude, longitude } = req.body;
+  const { startDate, endDate, startTime, endTime } = req.body;
   try {
     const availableListings = await Listing.findAll({
       where: {
@@ -542,7 +546,11 @@ router.post('/findcars', authenticate, async (req, res) => {
       const carFolder = path.join('./uploads/host/CarAdditional', carId);
       if (fs.existsSync(carFolder)) {
         const files = fs.readdirSync(carFolder);
-        let carImages = files.map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${carId}/${file}`);
+<<<<<<< HEAD
+        let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`);
+=======
+        let carImages = files.map(file => `${process.env.BASE_URL}s/uploads/host/CarAdditional/${carId}/${file}`);
+>>>>>>> e15f7a2 (added files url in .env file)
         availableCar = {
           carId: car.carid,
           carModel: car.carmodel,
@@ -567,22 +575,9 @@ router.post('/findcars', authenticate, async (req, res) => {
           reverseCamera: carAdditional.Reversecamera,
           transmission: carAdditional.Transmission,
           airBags: carAdditional.Airbags,
-          latitude: listing.dataValues.latitude,
-          longitude: listing.dataValues.longitude,
+          latitude: '',
+          longitude: '',
           fuelType: carAdditional.FuelType,
-          petFriendly: carAdditional.PetFriendly,
-          powerSteering: carAdditional.PowerSteering,
-          abs: carAdditional.ABS,
-          tractionControl: carAdditional.tractionControl,
-          fullBootSpace: carAdditional.fullBootSpace,
-          keylessEntry: carAdditional.KeylessEntry,
-          airPurifier: carAdditional.airPurifier,
-          cruiseControl: carAdditional.cruiseControl,
-          voiceControl: carAdditional.voiceControl,
-          usbCharger: carAdditional.usbCharger,
-          bluetooth: carAdditional.bluetooth,
-          airFreshner: carAdditional.airFreshner,
-          ventelatedFrontSeat: carAdditional.ventelatedFrontSeat,
           additionalInfo: carAdditional.Additionalinfo,
           carImage1: carImages[0] ? carImages[0] : null,
           carImage2: carImages[1] ? carImages[1] : null,
@@ -629,8 +624,8 @@ router.post('/findcars', authenticate, async (req, res) => {
           bluetooth: carAdditional.bluetooth,
           airFreshner: carAdditional.airFreshner,
           ventelatedFrontSeat: carAdditional.ventelatedFrontSeat,
-          latitude: listing.dataValues.latitude,
-          longitude: listing.dataValues.longitude,
+          latitude: '',
+          longitude: '',
           fuelType: carAdditional.FuelType,
           additionalInfo: carAdditional.Additionalinfo,
           carImage1: null,
@@ -652,22 +647,6 @@ router.post('/findcars', authenticate, async (req, res) => {
       }
     });
     const carsWithPricing = (await Promise.all(pricingPromises)).filter(car => car !== null);
-    if(latitude && longitude){ 
-    const origins = `${latitude},${longitude}`;
-    const destinations = carsWithPricing.map(car => `${car.latitude},${car.longitude}`).join('|');
-
-    const distanceMatrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${origins}&destinations=${destinations}&key=${GOOGLE_MAPS_API_KEY}`;
-
-    const distanceResponse = await axios.get(distanceMatrixUrl);
-    const distances = distanceResponse.data.rows[0].elements;
-
-    carsWithPricing.forEach((car, index) => {
-      car.distance = distances[index].distance.value; // Distance in meters
-      car.duration = distances[index].duration.value; // Duration in seconds
-    });
-
-    carsWithPricing.sort((a, b) => a.distance - b.distance);
-    } 
     res.status(200).json({ availableCars: carsWithPricing });
   } catch (error) {
     console.error(error);
@@ -1197,7 +1176,7 @@ router.post('/booking', authenticate, async (req, res) => {
         startTripTime: startTime,
         endTripTime: endTime,
         id: userId,
-        status: 1,
+        status: 2,
         amount: amount
       });
 
@@ -1213,6 +1192,11 @@ router.post('/booking', authenticate, async (req, res) => {
         startTripTime: booking.startTripTime,
         endTripTime: booking.endTripTime
       }
+      req.body.bookingId = booking.Bookingid;
+      req.body.userId = userId;
+      req.body.amount = amount;
+      //const paymentUrl = await initiatePayment(req);
+      //res.status(201).json({ message: 'Booking successful', booking, paymentUrl });
       res.status(201).json({ message: 'Booking successful', bookings });
     } catch (error) {
       console.error(error);
@@ -1275,7 +1259,7 @@ router.post('/getCarAdditional', async (req, res) => {
     if (fs.existsSync(carFolder)) {
       // List all files in the car's folder
       const files = fs.readdirSync(carFolder);
-      const carImages = files.map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${carId}/${file}`);
+      const carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`);
 
       res.status(200).json({
         message: "Car Additional data",
@@ -1665,7 +1649,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
         const carFolder = path.join('./uploads/host/CarAdditional', bookings.carid);
         const car = await Car.findOne({
           where: {
-            carid: bookings.carid,
+            carid: booking.carid,
           }
         });
         if (!car) {
@@ -1674,7 +1658,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
         let bk;
         if (fs.existsSync(carFolder)) {
           const files = fs.readdirSync(carFolder);
-          let carImages = files.map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${bookings.carid}/${file}`);
+          let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${bookings.carid}/${file}`);
           bk = {
             bookingId: bookings.Bookingid,
             carId: bookings.carid,
@@ -1839,71 +1823,53 @@ router.post('/rating', authenticate, async (req, res) => {
 });
 
 //Payment
-router.post('/payment', async (req, res) => {
-  try {
-    const { BookingId } = req.body;
-    let amount = '1';
-    let currency = 'INR';
-    let receipt = '1';
-    razorpay.orders.create({ amount, currency, receipt },
-      async (err, order) => {
-        if (!err) {
-          await Booking.update(
-            { Transactionid: order.id },
-            { amount: amount },
-            { where: { Bookingid: BookingId } }
-          );
-          res.json(order);
-        }
-        else {
-          res.send(err);
-        }
-      }
-    )
-  }
-  catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
 
+// Initiate Payment Route
+router.post('/payment', authenticate, initiatePayment);
+
+// Payment Status Check Route
+router.post('/status/:txnId', checkPaymentStatus);
+
+//chat
+router.get('/chat/history', authenticate, async (req, res) => {
+  const { hostId } = req.query;
+  const userId = req.user.id;
+
+  try {
+    const chats = await Chat.findAll({
+      where: { userId, hostId },
+      order: [['timestamp', 'ASC']],
+    });
+
+    res.status(200).json({ chats });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching chat history' });
+  }
 });
 
-//Razorpay-webhook
+// Create a new chat message from user to host
+router.post('/chat', authenticate, async (req, res) => {
+  const { hostId, message } = req.body;
+  const userId = req.user.id;
+  let imagePath = null;
 
-router.post('/razorpay-webhook', async (req, res) => {
+  if (req.file) {
+    imagePath = `http://localhost:5000/uploads/${userId}/${req.file.filename}`;
+  }
+
   try {
-    const secret = 'RAZORPAY_WEBHOOK_SECRET';
-    const hmac = crypto.createHmac('sha256', secret);
-    const generatedSignature = hmac.update(JSON.stringify(req.body)).digest('hex');
-    if (generatedSignature === req.headers['x-razorpay-signature']) {
-      const Transactionid = req.body.razorpay_order_id;
-      if (razorpayPaymentId) {
-        try {
-          const booking = await Booking.findOne({
-            where: {
-              Transactionid: Transactionid,
-            },
-          });
-          if (booking) {
-            res.status(200).send('Payment Successful');
-          } else {
-            res.status(404).send('Booking not found');
-          }
-        } catch (error) {
-          console.error('Webhook Error:', error.message);
-          res.status(500).send('Internal Server Error');
-        }
-      }
-      else {
-        res.status(404).send('Razor Payment Id not found');
-      }
-    }
-    else {
-      res.status(403).send('Invalid signature');
-    }
+    const chat = await Chat.create({
+      userId,
+      hostId,
+      message,
+      imagePath,
+    });
+
+    res.status(201).json({ message: 'Chat message sent', chat });
   } catch (error) {
-    console.error('Server Error');
-    res.status(500).send('Internal Server Error');
+    console.error(error);
+    res.status(500).json({ message: 'Error sending chat message' });
   }
 });
 
