@@ -188,8 +188,8 @@ router.get('/pending-profile', authenticate, async (req, res) => {
           let files = fs.readdirSync(userFolder);
           if(files){
           // Filter and create URLs for Aadhar and DL files
-          let aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `http://54.206.23.199:2000/uploads/${userId}/${file}`);
-          let dlFile = files.filter(file => file.includes('dlFile')).map(file => `http://54.206.23.199:2000/uploads/${userId}/${file}`);  
+          let aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
+          let dlFile = files.filter(file => file.includes('dlFile')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);  
           console.log(aadharFile[0],dlFile);
           return { ...item.toJSON(), aadharFile: aadharFile[0], dlFile: dlFile[0] };
            }
@@ -228,11 +228,11 @@ router.get('/pending-carprofile', authenticate, async (req, res) => {
         if (fs.existsSync(userFolder)){
           let files = fs.readdirSync(userFolder);
           if(files){
-          let carImage_1 = files.filter(file => file.includes('carImage_1')).map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${carid}/${file}`);
-          let carImage_2 = files.filter(file => file.includes('carImage_2')).map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${carid}/${file}`);  
-          let carImage_3 = files.filter(file => file.includes('carImage_3')).map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${carid}/${file}`); 
-          let carImage_4 = files.filter(file => file.includes('carImage_4')).map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${carid}/${file}`); 
-          let carImage_5 = files.filter(file => file.includes('carImage_5')).map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${carid}/${file}`); 
+          let carImage_1 = files.filter(file => file.includes('carImage_1')).map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carid}/${file}`);
+          let carImage_2 = files.filter(file => file.includes('carImage_2')).map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carid}/${file}`);  
+          let carImage_3 = files.filter(file => file.includes('carImage_3')).map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carid}/${file}`); 
+          let carImage_4 = files.filter(file => file.includes('carImage_4')).map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carid}/${file}`); 
+          let carImage_5 = files.filter(file => file.includes('carImage_5')).map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carid}/${file}`); 
           return { ...item.toJSON(), carImage_1: carImage_1[0], carImage_2: carImage_2[0], carImage_3: carImage_3[0],carImage_4: carImage_4[0],carImage_5: carImage_5[0] };
            }
           }

@@ -489,7 +489,7 @@ router.get('/listing', authenticate, async (req, res) => {
         let lk;
         if (fs.existsSync(carFolder)) {
           const files = fs.readdirSync(carFolder);
-          let carImages = files.map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${lstg.carid}/${file}`);
+          let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${lstg.carid}/${file}`);
           lk = {
             id: lstg.id,
             carId: lstg.carid,
@@ -854,7 +854,7 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
     if (fs.existsSync(carFolder)) {
       // List all files in the car's folder
       const files = fs.readdirSync(carFolder);
-      const carImages = files.map(file => `http://54.206.23.199:2000/uploads/host/CarAdditional/${carId}/${file}`);
+      const carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`);
 
       res.status(200).json({
         message: "Car Additional data",
