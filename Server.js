@@ -23,6 +23,7 @@ const app = express();
 
 // Creating HTTP server
 const server = http.createServer(app);
+app.use('/uploads', express.static(path.join(__dirname, './uploads')));
 
 // Socket.io setup
 const io = new Server(server, {
