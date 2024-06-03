@@ -1175,7 +1175,7 @@ router.post('/booking', authenticate, async (req, res) => {
         startTripTime: startTime,
         endTripTime: endTime,
         id: userId,
-        status: 2,
+        status: 1,
         amount: amount
       });
 
@@ -1670,6 +1670,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             startTripTime: bookings.startTripTime,
             endTripTime: bookings.endTripTime,
             carModel: car.carmodel,
+            hostId: car.hostId,
             carImage1: carImages[0] ? carImages[0] : null,
             carImage2: carImages[1] ? carImages[1] : null,
             carImage3: carImages[2] ? carImages[2] : null,
@@ -1690,6 +1691,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             startTripTime: bookings.startTripTime,
             endTripTime: bookings.endTripTime,
             carModel: car.carmodel,
+            hostId: car.hostId,
             carImage1: null,
             carImage2: null,
             carImage3: null,
