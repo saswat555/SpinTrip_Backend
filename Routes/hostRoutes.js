@@ -721,7 +721,7 @@ router.get('/host-bookings', authenticate, async (req, res) => {
     if (bookings) {
       const hostBooking = bookings.map(async (booking) => {
         const bk = {
-          bookingId: booking.BookingId,
+          bookingId: booking.Bookingid,
           carId: booking.carid,
           id: booking.id,
           status: booking.status,
