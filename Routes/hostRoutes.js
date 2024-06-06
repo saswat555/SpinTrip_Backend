@@ -214,12 +214,11 @@ router.post('/car', authenticate, async (req, res) => {
     }
     const carid = uuid.v4();
     let lat, lng;
-    if(address)
-    {
-      ({ lat, lng } = await geocodeAddress(address)); 
-    console.log(lat, lng);
+    if (address) {
+      ({ lat, lng } = await geocodeAddress(address));
+      console.log(lat, lng);
     }
-    
+
     const car = await Car.create({
       carmodel: carModel,
       type: type,
@@ -266,7 +265,7 @@ router.post('/car', authenticate, async (req, res) => {
       id: listingid,
       carid: car.carid,
       hostid: carhostid,
-      latitude: lat, 
+      latitude: lat,
       longitude: lng,
     })
 
@@ -395,7 +394,7 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
         PowerSteering: powerSteering,
         ABS: abs,
         tractionControl: tractionControl,
-        fullBootSpace:  fullBootSpace,
+        fullBootSpace: fullBootSpace,
         KeylessEntry: keylessEntry,
         airPurifier: airPurifier,
         cruiseControl: cruiseControl,
@@ -450,19 +449,19 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
         reverseCamera: carAdditional.Reversecamera,
         transmission: carAdditional.Transmission,
         airBags: carAdditional.Airbags,
-        fuelType: carAdditional.FuelType, 
-        petFriendly: carAdditional.PetFriendly, 
-        powerSteering: carAdditional.PowerSteering, 
-        abs: carAdditional.ABS, 
-        tractionControl: carAdditional.tractionControl, 
-        fullBootSpace: carAdditional.fullBootSpace, 
-        keylessEntry: carAdditional.KeylessEntry, 
-        airPurifier: carAdditional.airPurifier, 
-        cruiseControl: carAdditional.cruiseControl, 
-        voiceControl: carAdditional.voiceControl, 
-        usbCharger: carAdditional.usbCharger, 
-        bluetooth: carAdditional.bluetooth, 
-        airFreshner: carAdditional.airFreshner, 
+        fuelType: carAdditional.FuelType,
+        petFriendly: carAdditional.PetFriendly,
+        powerSteering: carAdditional.PowerSteering,
+        abs: carAdditional.ABS,
+        tractionControl: carAdditional.tractionControl,
+        fullBootSpace: carAdditional.fullBootSpace,
+        keylessEntry: carAdditional.KeylessEntry,
+        airPurifier: carAdditional.airPurifier,
+        cruiseControl: carAdditional.cruiseControl,
+        voiceControl: carAdditional.voiceControl,
+        usbCharger: carAdditional.usbCharger,
+        bluetooth: carAdditional.bluetooth,
+        airFreshner: carAdditional.airFreshner,
         ventelatedFrontSeat: carAdditional.ventelatedFrontSeat,
         carImage1: carAdditional.carimage1,
         carImage2: carAdditional.carimage2,
@@ -518,8 +517,8 @@ router.get('/listing', authenticate, async (req, res) => {
             carImage4: carImages[3] ? carImages[3] : null,
             carImage5: carImages[4] ? carImages[4] : null
           }
-        }  
-        else{
+        }
+        else {
           lk = {
             id: lstg.id,
             carId: lstg.carid,
@@ -730,7 +729,8 @@ router.get('/host-bookings', authenticate, async (req, res) => {
           startTripDate: booking.startTripDate,
           endTripDate: booking.endTripDate,
           startTripTime: booking.startTripTime,
-          endTripTime: booking.endTripTime
+          endTripTime: booking.endTripTime,
+          createdAt: booking.createdAt,
         }
         return { ...bk };
       });
@@ -831,18 +831,18 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
       reverseCamera: carAdditional.Reversecamera,
       transmission: carAdditional.Transmission,
       airBags: carAdditional.Airbags,
-      petFriendly: carAdditional.PetFriendly, 
-      powerSteering: carAdditional.PowerSteering, 
-      abs: carAdditional.ABS, 
-      tractionControl: carAdditional.tractionControl, 
-      fullBootSpace: carAdditional.fullBootSpace, 
-      keylessEntry: carAdditional.KeylessEntry, 
-      airPurifier: carAdditional.airPurifier, 
-      cruiseControl: carAdditional.cruiseControl, 
-      voiceControl: carAdditional.voiceControl, 
-      usbCharger: carAdditional.usbCharger, 
-      bluetooth: carAdditional.bluetooth, 
-      airFreshner: carAdditional.airFreshner, 
+      petFriendly: carAdditional.PetFriendly,
+      powerSteering: carAdditional.PowerSteering,
+      abs: carAdditional.ABS,
+      tractionControl: carAdditional.tractionControl,
+      fullBootSpace: carAdditional.fullBootSpace,
+      keylessEntry: carAdditional.KeylessEntry,
+      airPurifier: carAdditional.airPurifier,
+      cruiseControl: carAdditional.cruiseControl,
+      voiceControl: carAdditional.voiceControl,
+      usbCharger: carAdditional.usbCharger,
+      bluetooth: carAdditional.bluetooth,
+      airFreshner: carAdditional.airFreshner,
       ventelatedFrontSeat: carAdditional.ventelatedFrontSeat,
       carImage1: carAdditional.carimage1,
       carImage2: carAdditional.carimage2,
@@ -888,7 +888,7 @@ router.post('/getCarReg', async (req, res) => {
       <soap:Body>
         <web:CheckIndia>
           <web:RegistrationNumber>${RegID}</web:RegistrationNumber>
-          <web:username>panda555</web:username>
+          <web:username>Pratyay</web:username>
         </web:CheckIndia>
       </soap:Body>
     </soap:Envelope>
@@ -912,8 +912,28 @@ router.post('/getCarReg', async (req, res) => {
         res.status(500).json({ error: 'Error parsing XML' });
         return;
       }
-
-      res.status(200).json(result);
+      try {
+        console.log(result);
+        const payload = result; // the parsed XML structure
+        const vehicle_json_str = payload["soap:Envelope"]["soap:Body"]["CheckIndiaResponse"]["CheckIndiaResult"]["vehicleJson"];
+        
+        const vehicle_json = JSON.parse(vehicle_json_str);
+  
+        const vehicle_data = payload["soap:Envelope"]["soap:Body"]["CheckIndiaResponse"]["CheckIndiaResult"]["vehicleData"];
+        const final_json = {
+          Description: vehicle_data.Description,
+          RegistrationYear: vehicle_data.RegistrationYear,
+          CarMake: vehicle_data.CarMake.CurrentTextValue,
+          CarModel: vehicle_data.CarModel,
+          EngineSize: vehicle_data.EngineSize.CurrentTextValue
+        };
+  
+        console.log(JSON.stringify(final_json, null, 4));
+        res.status(200).json(final_json);
+      } catch (error) {
+        console.error('Error processing data:', error);
+        res.status(500).json({ error: 'Error processing data' });
+      }
     });
 
   } catch (error) {

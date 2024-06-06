@@ -5,7 +5,7 @@ const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
 const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host } = require('../Models');
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
-const { initiatePayment,checkPaymentStatus } = require('../Controller/paymentController');
+const { initiatePayment, checkPaymentStatus } = require('../Controller/paymentController');
 const chatController = require('../Controller/chatController');
 
 const { Op } = require('sequelize');
@@ -215,7 +215,7 @@ router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCoun
       await UserAdditional.update({
         dl: dlFile[0].destination,
         aadhar: aadharFile[0].destination,
-        profilepic: profilePic[0].destination,
+        //profilepic: profilePic[0].destination,
         verification_status: 1
       }, { where: { id: userId } });
     }
@@ -281,22 +281,58 @@ router.post('/signup', async (req, res) => {
 router.get('/cars', async (req, res) => {
   const cars = await Car.findAll();
   const pricingPromises = cars.map(async (car) => {
-    const cph = await Pricing.findOne({ where: { carid: car.carid } });
-    let availableCar = {
-      carId: car.carid,
-      carModel: car.carmodel,
-      type: car.type,
-      brand: car.brand,
-      variant: car.variant,
-      color: car.color,
-      chassisNo: car.chassisno,
-      mileage: car.mileage,
-      registrationYear: car.Registrationyear,
-      rcNumber: car.Rcnumber,
-      bodyType: car.bodytype,
-      hostId: car.hostId,
-      rating: car.rating
+    const carFolder = path.join('./uploads/host/CarAdditional', car.carid);
+    let availableCar;
+    if (fs.existsSync(carFolder)) {
+      const files = fs.readdirSync(carFolder);
+      let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${car.carid}/${file}`);
+     
+      availableCar = {
+        carId: car.carid,
+        carModel: car.carmodel,
+        type: car.type,
+        brand: car.brand,
+        variant: car.variant,
+        color: car.color,
+        chassisNo: car.chassisno,
+        mileage: car.mileage,
+        registrationYear: car.Registrationyear,
+        rcNumber: car.Rcnumber,
+        bodyType: car.bodytype,
+        hostId: car.hostId,
+        rating: car.rating,
+        carImage1: carImages[0] ? carImages[0] : null,
+        carImage2: carImages[1] ? carImages[1] : null,
+        carImage3: carImages[2] ? carImages[2] : null,
+        carImage4: carImages[3] ? carImages[3] : null,
+        carImage5: carImages[4] ? carImages[4] : null
+
+      }
     }
+    else {
+      availableCar = {
+        carId: car.carid,
+        carModel: car.carmodel,
+        type: car.type,
+        brand: car.brand,
+        variant: car.variant,
+        color: car.color,
+        chassisNo: car.chassisno,
+        mileage: car.mileage,
+        registrationYear: car.Registrationyear,
+        rcNumber: car.Rcnumber,
+        bodyType: car.bodytype,
+        hostId: car.hostId,
+        rating: car.rating,
+        carImage1: null,
+        carImage2: null,
+        carImage3: null,
+        carImage4: null,
+        carImage5: null
+
+      }
+    }
+    const cph = await Pricing.findOne({ where: { carid: car.carid } });
     if (cph) {
       const costperhr = cph.costperhr;
       // Include pricing information in the car object
@@ -1644,6 +1680,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
     let userId = req.user.userid;
     const booking = await Booking.findAll({ where: { id: userId } })
     if (booking) {
+      console.log(booking);
       const userBooking = booking.map(async (bookings) => {
         const carFolder = path.join('./uploads/host/CarAdditional', bookings.carid);
         const car = await Car.findOne({
@@ -1675,7 +1712,8 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             carImage2: carImages[1] ? carImages[1] : null,
             carImage3: carImages[2] ? carImages[2] : null,
             carImage4: carImages[3] ? carImages[3] : null,
-            carImage5: carImages[4] ? carImages[4] : null
+            carImage5: carImages[4] ? carImages[4] : null,
+            createdAt: bookings.createdAt,
           }
         }
         else {
@@ -1696,7 +1734,8 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             carImage2: null,
             carImage3: null,
             carImage4: null,
-            carImage5: null
+            carImage5: null,
+            createdAt: bookings.createdAt,
           }
         }
         return { ...bk };
