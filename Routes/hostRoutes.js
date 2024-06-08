@@ -785,6 +785,38 @@ router.post('/rating', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+router.post('/booking-request', authenticate, async (req, res) => {
+  try {
+    let bk = req.body;
+    console.log(bk.bookingId);
+    const booking = await Booking.findOne({
+      where: {
+        Bookingid: bk.bookingId,
+        status : 5,
+      }
+    });
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found or already processed' });
+    }
+    if(bk.status == '1'){
+     await booking.update({
+      status: 1,
+    });
+    return res.status(201).json({ message: 'Booking confirmed by host' });
+    }
+    if(bk.status == '4'){
+      await booking.update({
+       status: 4,
+     });
+     return res.status(201).json({ message: 'Booking cancelled by host' });
+     }
+     return res.status(404).json({ message: 'No Action performed' });
+  }
+  catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 router.post('/getFeedback', authenticate, async (req, res) => {
   try {

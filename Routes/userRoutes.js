@@ -485,7 +485,7 @@ router.post('/findcars', authenticate, async (req, res) => {
         where: {
           carid: carId,
           status: {
-            [Op.in]: [1, 2]  // Assuming 1 and 2 are statuses for active bookings
+            [Op.in]: [1, 2, 5]  // Assuming 1 and 2 are statuses for active bookings
           },
           [Op.or]: [
             // Case 1: The existing booking starts during the requested period
@@ -823,7 +823,7 @@ router.post('/onecar', async (req, res) => {
         where: {
           carid: carId,
           status: {
-            [Op.in]: [1, 2]  // Assuming 1 and 2 are statuses for active bookings
+            [Op.in]: [1, 2, 5]  // Assuming 1 and 2 are statuses for active bookings
           },
           [Op.or]: [
             // Case 1: The existing booking starts during the requested period
@@ -1102,7 +1102,7 @@ router.post('/booking', authenticate, async (req, res) => {
         where: {
           carid: carId,
           status: {
-            [Op.in]: [1, 2]  // Assuming 1 and 2 are statuses for active bookings
+            [Op.in]: [1, 2, 5]  // Assuming 1 and 2 are statuses for active bookings
           },
           [Op.or]: [
             // Case 1: The existing booking starts during the requested period
@@ -1211,7 +1211,7 @@ router.post('/booking', authenticate, async (req, res) => {
         startTripTime: startTime,
         endTripTime: endTime,
         id: userId,
-        status: 1,
+        status: 5,
         amount: amount
       });
 
@@ -1460,42 +1460,43 @@ router.post('/extend-booking', authenticate, async (req, res) => {
     if (listing) {
       const check_booking = await Booking.findOne({
         where: {
-          carid: carId,
+          carid: booking.carid,
+          Bookingid: { [Op.ne]: booking.Bookingid },
           status: {
-            [Op.in]: [1, 2]  // Assuming 1 and 2 are statuses for active bookings
+            [Op.in]: [5, 1]  // Assuming 1 and 2 are statuses for active bookings
           },
           [Op.or]: [
             // Case 1: The existing booking starts during the requested period
             {
               [Op.and]: [
-                { startTripDate: { [Op.eq]: startDate } },
-                { startTripTime: { [Op.between]: [startTime, endTime] } }
+                { startTripDate: { [Op.eq]: booking.startTripDate } },
+                { startTripTime: { [Op.between]: [booking.startTripTime, newEndTime] } }
               ]
             },
             // Case 2: The existing booking ends during the requested period
             {
               [Op.and]: [
-                { endTripDate: { [Op.eq]: endDate } },
-                { endTripTime: { [Op.between]: [startTime, endTime] } }
+                { endTripDate: { [Op.eq]: newEndDate } },
+                { endTripTime: { [Op.between]: [booking.startTripTime, newEndTime] } }
               ]
             },
             // Case 3: The existing booking starts before the requested period and ends after it starts
             {
               [Op.and]: [
-                { startTripDate: { [Op.lte]: startDate } },
-                { endTripDate: { [Op.gte]: startDate } },
+                { startTripDate: { [Op.lte]: booking.startTripDate } },
+                { endTripDate: { [Op.gte]: booking.startTripDate } },
                 {
                   [Op.or]: [
                     {
                       [Op.and]: [
-                        { startTripDate: { [Op.eq]: startDate } },
-                        { startTripTime: { [Op.lte]: startTime } }
+                        { startTripDate: { [Op.eq]: booking.startTripDate } },
+                        { startTripTime: { [Op.lte]: booking.startTripTime } }
                       ]
                     },
                     {
                       [Op.and]: [
-                        { endTripDate: { [Op.eq]: startDate } },
-                        { endTripTime: { [Op.gte]: startTime } }
+                        { endTripDate: { [Op.eq]: booking.startTripDate } },
+                        { endTripTime: { [Op.gte]: booking.startTripTime } }
                       ]
                     }
                   ]
@@ -1505,20 +1506,20 @@ router.post('/extend-booking', authenticate, async (req, res) => {
             // Case 4: The requested period starts during an existing booking
             {
               [Op.and]: [
-                { startTripDate: { [Op.lte]: endDate } },
-                { endTripDate: { [Op.gte]: startDate } },
+                { startTripDate: { [Op.lte]: newEndDate } },
+                { endTripDate: { [Op.gte]: booking.startTripDate } },
                 {
                   [Op.or]: [
                     {
                       [Op.and]: [
-                        { startTripDate: { [Op.eq]: endDate } },
-                        { startTripTime: { [Op.lte]: endTime } }
+                        { startTripDate: { [Op.eq]: newEndDate } },
+                        { startTripTime: { [Op.lte]: newEndTime } }
                       ]
                     },
                     {
                       [Op.and]: [
-                        { endTripDate: { [Op.eq]: startDate } },
-                        { endTripTime: { [Op.gte]: startTime } }
+                        { endTripDate: { [Op.eq]: booking.startTripDate } },
+                        { endTripTime: { [Op.gte]: booking.startTripTime } }
                       ]
                     }
                   ]
@@ -1528,20 +1529,20 @@ router.post('/extend-booking', authenticate, async (req, res) => {
             // Case 5: The existing booking completely overlaps the requested period
             {
               [Op.and]: [
-                { startTripDate: { [Op.lte]: startDate } },
-                { endTripDate: { [Op.gte]: endDate } },
+                { startTripDate: { [Op.lte]: booking.startTripDate } },
+                { endTripDate: { [Op.gte]: newEndDate } },
                 {
                   [Op.or]: [
                     {
                       [Op.and]: [
-                        { startTripDate: { [Op.eq]: startDate } },
-                        { startTripTime: { [Op.lte]: startTime } }
+                        { startTripDate: { [Op.eq]: booking.startTripDate } },
+                        { startTripTime: { [Op.lte]: booking.startTripTime } }
                       ]
                     },
                     {
                       [Op.and]: [
-                        { endTripDate: { [Op.eq]: endDate } },
-                        { endTripTime: { [Op.gte]: endTime } }
+                        { endTripDate: { [Op.eq]: newEndDate } },
+                        { endTripTime: { [Op.gte]: newEndTime } }
                       ]
                     }
                   ]
