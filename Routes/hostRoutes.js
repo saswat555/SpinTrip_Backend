@@ -30,7 +30,7 @@ const carImageStorage = multer.diskStorage({
   }
 });
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyAXccf05saQXjwGUQ6gzaEI8ev5rMY7zZE';
+const GOOGLE_MAPS_API_KEY = '';
 async function geocodeAddress(address) {
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
   const response = await axios.get(url);
@@ -42,8 +42,21 @@ async function geocodeAddress(address) {
     throw new Error('Geocoding failed.');
   }
 }
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const userId = req.user.id; // Assuming req.user.id contains the user ID
+    const uploadPath = path.join(__dirname, '../uploads', userId.toString());
+    fs.mkdirSync(uploadPath, { recursive: true }); // Ensure directory exists
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    // Use field name as file name
+    let filename = file.fieldname + path.extname(file.originalname);
+    cb(null, filename);
+  }
+});
 
-
+const upload = multer({ storage: storage });
 const uploadCarImages = multer({ storage: carImageStorage }).fields(
   Array.from({ length: 5 }, (_, i) => ({ name: `carImage_${i + 1}` }))
 );
@@ -158,6 +171,7 @@ router.post('/signup', async (req, res) => {
       id: user.id,
       carid: null
     });
+    UserAdditional.create({ id: user.id });
     let response = {
       id: user.id,
       phone: user.phone,
@@ -180,15 +194,91 @@ router.get('/profile', authenticate, async (req, res) => {
     }
 
     const cars = await Car.findAll({ where: { hostId: host.id } })
-    const additionalinfo = await UserAdditional.findByPk(hostId)
+    let additionalInfo = await UserAdditional.findByPk(hostId);
+    const userFolder = path.join('./uploads', String(hostId));
+    let profile;
+    if (fs.existsSync(userFolder)) {
+      // List all files in the user's folder
+      const files = fs.readdirSync(userFolder);
+      
+      if (files) {
+
+        // Filter and create URLs for Aadhar and DL file
+        const profilePic = files.filter(file => file.includes('profilePic')).map(file => `${process.env.BASE_URL}/uploads/${hostId}/${file}`);
+        profile = {
+          id: additionalInfo.id,
+          dlNumber: additionalInfo.Dlverification,
+          fullName: additionalInfo.FullName,
+          email: additionalInfo.Email,
+          aadharNumber: additionalInfo.AadharVfid,
+          address: additionalInfo.Address,
+          verificationStatus: additionalInfo.verification_status,
+          profilePic: profilePic
+        }
+      }
+      else {
+        profile = {
+          id: additionalInfo.id,
+          dlNumber: additionalInfo.Dlverification,
+          fullName: additionalInfo.FullName,
+          email: additionalInfo.Email,
+          aadharNumber: additionalInfo.AadharVfid,
+          address: additionalInfo.Address,
+          verificationStatus: additionalInfo.verification_status,
+          dl: 'null',
+          aadhar: 'null',
+          profilePic: 'null'
+        }
+      }
+
+    }
+    else {
+      profile = {
+        id: additionalInfo?.id || null,
+        dlNumber: additionalInfo?.Dlverification || null,
+        fullName: additionalInfo?.FullName || null,
+        email: additionalInfo?.Email || null,
+        aadharNumber: additionalInfo?.AadharVfid || null,
+        address: additionalInfo?.Address || null,
+        verificationStatus: additionalInfo?.verification_status || null,
+        dl: 'null',
+        aadhar: 'null',
+        profilePic: 'null'
+      };
+    }
     // You can include more fields as per your User model
-    res.json({ hostDetails: host, cars, additionalinfo });
+    res.json({ hostDetails: host, cars, profile });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 // Add Car
+router.put('/verify', authenticate, upload.fields([{ name: 'profilePic', maxCount: 1 }]), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    let files = [];
+    if (req.files) {
+      if (req.files['profilePic']) files.push(req.files['profilePic'][0]);
+    }
+    const { profilePic } = req.files;
+    if (profilePic) {
+      await UserAdditional.update({
+        profilepic: profilePic[0].destination,
+      }, { where: { id: userId } });
+    }
+
+    res.status(200).json({ message: 'Profile Updated successfully' });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error updating profile', error: error });
+  }
+});
 router.post('/car', authenticate, async (req, res) => {
   const {
     carModel,
@@ -511,6 +601,8 @@ router.get('/listing', authenticate, async (req, res) => {
             rcNumber: car.Rcnumber,
             type: car.type,
             carModel: car.carmodel,
+            latitude: lstg.latitude,
+            longitude: lstg.longitude,
             carImage1: carImages[0] ? carImages[0] : null,
             carImage2: carImages[1] ? carImages[1] : null,
             carImage3: carImages[2] ? carImages[2] : null,
@@ -536,6 +628,8 @@ router.get('/listing', authenticate, async (req, res) => {
             rcNumber: car.Rcnumber,
             type: car.type,
             carModel: car.carmodel,
+            latitude: lstg.latitude,
+            longitude: lstg.longitude,
             carImage1: null,
             carImage2: null,
             carImage3: null,
@@ -546,7 +640,6 @@ router.get('/listing', authenticate, async (req, res) => {
         return { ...lk };
       });
       const hostListings = await Promise.all(listings);
-      console.log(hostListings);
       res.status(201).json({ message: "Listing successfully queried", hostListings })
     }
     catch (error) {
