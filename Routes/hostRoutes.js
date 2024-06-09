@@ -764,6 +764,31 @@ router.put('/listing', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Error updating listing' });
   }
 });
+router.put('/profile', authenticate, async (req, res) => {
+  try {
+    const hostId = req.user.id;
+    const host = await Host.findByPk(hostId);
+    if (!host) {
+      return res.status(404).json({ message: 'Host not found' });
+    }
+
+    // Update additional user information
+    const { fullName, aadharId, email, address } = req.body;
+    await UserAdditional.update({
+      id: hostId,
+      FullName: fullName,
+      AadharVfid: aadharId,
+      Email: email,
+      Address: address,
+    }, { where: { id: hostId } });
+
+    res.status(200).json({ message: 'Profile Updated successfully' });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error updating profile', error: error });
+  }
+});
+
 router.post('/monthly-data', authenticate, async (req, res) => {
   const { carId } = req.body;
   try {
@@ -838,6 +863,7 @@ router.get('/host-bookings', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 router.post('/rating', authenticate, async (req, res) => {
   try {
     let { bookingId, rating } = req.body;
