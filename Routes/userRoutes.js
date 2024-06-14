@@ -7,7 +7,7 @@ const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, C
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { initiatePayment, checkPaymentStatus } = require('../Controller/paymentController');
 const chatController = require('../Controller/chatController');
-
+const { createSupportTicket, addSupportMessage } = require('../Controller/supportController');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
 const multer = require('multer');
@@ -1913,5 +1913,13 @@ router.post('/chat', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Error sending chat message' });
   }
 });
+
+
+//Support system for user
+// Create a support ticket
+router.post('/support', authenticate, createSupportTicket);
+
+// Add a message to a support ticket
+router.post('/support/message', authenticate, addSupportMessage);
 
 module.exports = router;

@@ -16,6 +16,7 @@ const { parseString } = require('xml2js');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const router = express.Router();
 const chatController = require('../Controller/chatController');
+const { createSupportTicket, addSupportMessage } = require('../Controller/supportController');
 const carImageStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const carId = req.body.carId;
@@ -1093,6 +1094,12 @@ router.post('/getCarReg', async (req, res) => {
   }
 });
 
+//Support for host
+// Create a support ticket
+router.post('/support', authenticate, createSupportTicket);
+
+// Add a message to a support ticket
+router.post('/support/message', authenticate, addSupportMessage);
 
 
 module.exports = router;

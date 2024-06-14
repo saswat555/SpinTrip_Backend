@@ -8,6 +8,7 @@ const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/admin
 const fs = require('fs');
 const router = express.Router();
 const chatController = require('../Controller/chatController');
+const { viewSupportTickets, replyToSupportTicket, escalateSupportTicket, resolveSupportTicket } = require('../Controller/supportController');
 
 //Login
   
@@ -357,4 +358,19 @@ router.get('/pricing', authenticate, async (req, res) => {
   const pricing = await Pricing.findAll();
   res.status(200).json({ "message": "Car pricing asscoiated", pricing })
 });
+
+
+//Support
+// View all support tickets
+router.get('/support', authenticate, viewSupportTickets);
+
+// Reply to a support ticket
+router.post('/support/reply', authenticate, replyToSupportTicket);
+
+// Escalate a support ticket
+router.post('/support/escalate', authenticate, escalateSupportTicket);
+
+// Resolve a support ticket
+router.post('/support/resolve', authenticate, resolveSupportTicket);
+
 module.exports = router;
