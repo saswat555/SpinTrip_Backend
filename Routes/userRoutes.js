@@ -692,10 +692,16 @@ router.post('/findcars', authenticate, async (req, res) => {
       console.log(distanceResponse.data);   
   
       carsWithPricing.forEach((car, index) => {
-        if (distanceResponse.data.status != 'REQUEST_DENIED' && distances[index].status === 'OK') {
+        if (distanceResponse.data.status != 'REQUEST_DENIED') {  
             const distances = distanceResponse.data.rows[0].elements;
+            if(distances[index].status === 'OK'){
             car.distance = distances[index].distance.value; // Distance in meters
             car.duration = distances[index].duration.value; // Duration in seconds
+           }
+           else {
+            car.distance = null; 
+            car.duration = null; 
+        }
         } else {
             car.distance = null; 
             car.duration = null; 
