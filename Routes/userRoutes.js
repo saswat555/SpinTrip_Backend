@@ -672,8 +672,8 @@ router.post('/findcars', authenticate, async (req, res) => {
       }
       if (cph) {
         const hours = calculateTripHours(startDate, endDate, startTime, endTime);
-        const amount = cph.costperhr * hours;
-        const costperhr = cph.costperhr;
+        const amount = Math.round(cph.costperhr * hours);
+        const costperhr = Math.round(cph.costperhr);
         // Combine the Car data with the pricing information
         return { ...availableCar, pricing: { costPerHr: costperhr, hours: hours, amount: amount } };
       } else {
@@ -689,12 +689,18 @@ router.post('/findcars', authenticate, async (req, res) => {
       const distanceMatrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${origins}&destinations=${destinations}&key=${GOOGLE_MAPS_API_KEY}`;
   
       const distanceResponse = await axios.get(distanceMatrixUrl);
-      const distances = distanceResponse.data.rows[0].elements;
+      console.log(distanceResponse.data);   
   
       carsWithPricing.forEach((car, index) => {
-        car.distance = distances[index].distance.value; // Distance in meters
-        car.duration = distances[index].duration.value; // Duration in seconds
-      });  
+        if (distanceResponse.data.status != 'REQUEST_DENIED' && distances[index].status === 'OK') {
+            const distances = distanceResponse.data.rows[0].elements;
+            car.distance = distances[index].distance.value; // Distance in meters
+            car.duration = distances[index].duration.value; // Duration in seconds
+        } else {
+            car.distance = null; 
+            car.duration = null; 
+        }
+      });
       carsWithPricing.sort((a, b) => a.distance - b.distance);
      } 
     res.status(200).json({ availableCars: carsWithPricing });
@@ -948,7 +954,7 @@ router.post('/onecar', async (req, res) => {
       }
       if (cph) {
         const hours = calculateTripHours(startDate, endDate, startTime, endTime);
-        const amount = cph.costperhr * hours;
+        const amount =  Math.round(cph.costperhr * hours);
         const costperhr = cph.costperhr;
         // Include pricing information in the car object
         res.status(200).json({ cars, pricing: { costPerHr: costperhr, hours: hours, amount: amount } });
@@ -1216,7 +1222,7 @@ router.post('/booking', authenticate, async (req, res) => {
     try {
       let cph = await Pricing.findOne({ where: { carid: carId } })
       let hours = calculateTripHours(startDate, endDate, startTime, endTime);
-      let amount = cph.costperhr * hours;
+      let amount =  Math.round(cph.costperhr * hours);
       const bookingid = uuid.v4();
       let booking = await Booking.create({
         Bookingid: bookingid,
@@ -1585,7 +1591,7 @@ router.post('/extend-booking', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'Car pricing is not available' });
     }
 
-    const additionalAmount = cph.costperhr * additionalHours;
+    const additionalAmount = Math.round(cph.costperhr * additionalHours);
 
     // Update booking with new end date, end time, and amount
     booking.endTripDate = newEndDate;
