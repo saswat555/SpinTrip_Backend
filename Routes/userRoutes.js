@@ -28,7 +28,7 @@ const storage = multer.diskStorage({
   }
 });
 const fs = require('fs');
-
+const GOOGLE_MAPS_API_KEY = `${process.env.GOOGLE_MAPS_API_KEY}`;
 
 const upload = multer({ storage: storage });
 //Login
@@ -351,7 +351,7 @@ router.post('/chat/send', chatController.sendMessage);
 router.get('/chat/:bookingId', chatController.getMessagesByBookingId);
 //Find Cars
 router.post('/findcars', authenticate, async (req, res) => {
-  const { startDate, endDate, startTime, endTime } = req.body;
+  const { startDate, endDate, startTime, endTime, latitude, longitude } = req.body;
   try {
     const availableListings = await Listing.findAll({
       where: {
@@ -610,8 +610,8 @@ router.post('/findcars', authenticate, async (req, res) => {
           reverseCamera: carAdditional.Reversecamera,
           transmission: carAdditional.Transmission,
           airBags: carAdditional.Airbags,
-          latitude: '',
-          longitude: '',
+          latitude: listing.dataValues.latitude,
+          longitude: listing.dataValues.longitude,
           fuelType: carAdditional.FuelType,
           additionalInfo: carAdditional.Additionalinfo,
           carImage1: carImages[0] ? carImages[0] : null,
@@ -659,8 +659,8 @@ router.post('/findcars', authenticate, async (req, res) => {
           bluetooth: carAdditional.bluetooth,
           airFreshner: carAdditional.airFreshner,
           ventelatedFrontSeat: carAdditional.ventelatedFrontSeat,
-          latitude: '',
-          longitude: '',
+          latitude: listing.dataValues.latitude,
+          longitude: listing.dataValues.longitude,
           fuelType: carAdditional.FuelType,
           additionalInfo: carAdditional.Additionalinfo,
           carImage1: null,
@@ -682,6 +682,21 @@ router.post('/findcars', authenticate, async (req, res) => {
       }
     });
     const carsWithPricing = (await Promise.all(pricingPromises)).filter(car => car !== null);
+    if(latitude && longitude){ 
+      const origins = `${latitude},${longitude}`;
+      const destinations = carsWithPricing.map(car => `${car.latitude},${car.longitude}`).join('|');
+  
+      const distanceMatrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${origins}&destinations=${destinations}&key=${GOOGLE_MAPS_API_KEY}`;
+  
+      const distanceResponse = await axios.get(distanceMatrixUrl);
+      const distances = distanceResponse.data.rows[0].elements;
+  
+      carsWithPricing.forEach((car, index) => {
+        car.distance = distances[index].distance.value; // Distance in meters
+        car.duration = distances[index].duration.value; // Duration in seconds
+      });  
+      carsWithPricing.sort((a, b) => a.distance - b.distance);
+     } 
     res.status(200).json({ availableCars: carsWithPricing });
   } catch (error) {
     console.error(error);

@@ -31,7 +31,7 @@ const carImageStorage = multer.diskStorage({
   }
 });
 
-const GOOGLE_MAPS_API_KEY = '';
+const GOOGLE_MAPS_API_KEY = `${process.env.GOOGLE_MAPS_API_KEY}`;
 async function geocodeAddress(address) {
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
   const response = await axios.get(url);
