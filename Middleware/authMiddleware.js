@@ -18,7 +18,7 @@ const authenticate = async (req, res, next) => {
     console.log("User is logged in")
     next();}
     catch(error){
-      return res("Invalid token")
+      return res.status(401).json({message: "Invalid token"})
     }
   }
   

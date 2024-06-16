@@ -73,7 +73,7 @@ const viewSupportTickets = async (req, res) => {
   const replyToSupportTicket = async (req, res) => {
     const { ticketId, reply } = req.body;
     try {
-      const ticket = await SupportTicket.findByPk(ticketId);
+      const ticket = await Support.findByPk(ticketId);
       if (!ticket) {
         return res.status(404).json({ message: 'Ticket not found' });
       }

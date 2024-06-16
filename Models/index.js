@@ -43,6 +43,7 @@ db.Listing = require('./listingModel')(sequelize, DataTypes);
 db.Pricing = require('./pricingModel')(sequelize, DataTypes);
 db.Feedback = require('./feedback')(sequelize, DataTypes);
 db.Chat = require('./chatModel')(sequelize, DataTypes);
+db.Tax = require('./TaxModel')(sequelize, DataTypes);
 db.Support = require('./supportModel')(sequelize, DataTypes);
 db.SupportChat = require('./supportChatModel')(sequelize, DataTypes);
 const associateModels = () => {

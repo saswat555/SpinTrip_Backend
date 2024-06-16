@@ -29,7 +29,14 @@ const storage = multer.diskStorage({
 });
 const fs = require('fs');
 const GOOGLE_MAPS_API_KEY = `${process.env.GOOGLE_MAPS_API_KEY}`;
-
+const MAX_ELEMENTS = 30; 
+function chunkArray(array, chunkSize) {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, chunkSize + i));
+  }
+  return chunks;
+}
 const upload = multer({ storage: storage });
 //Login
 router.post('/login', async (req, res) => {
@@ -47,10 +54,14 @@ router.post('/login', async (req, res) => {
   return res.json({ message: 'OTP sent successfully', redirectTo: '/verify-otp', phone, otp });
 });
 
+
 //Verify-OTP
 router.post('/verify-otp', async (req, res) => {
   const { phone, otp } = req.body;
   const user = await User.findOne({ where: { phone } })
+  if (!user) {
+    return res.status(401).json({ message: 'Invalid OTP' });
+  }
   const fixed_otp = user.otp;
   if (fixed_otp === otp) {
     const user = await User.findOne({ where: { phone } });
@@ -286,7 +297,7 @@ router.get('/cars', async (req, res) => {
     if (fs.existsSync(carFolder)) {
       const files = fs.readdirSync(carFolder);
       let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${car.carid}/${file}`);
-     
+
       availableCar = {
         carId: car.carid,
         carModel: car.carmodel,
@@ -682,33 +693,40 @@ router.post('/findcars', authenticate, async (req, res) => {
       }
     });
     const carsWithPricing = (await Promise.all(pricingPromises)).filter(car => car !== null);
-    if(latitude && longitude){ 
+    if (latitude && longitude) {
       const origins = `${latitude},${longitude}`;
-      const destinations = carsWithPricing.map(car => `${car.latitude},${car.longitude}`).join('|');
-  
-      const distanceMatrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${origins}&destinations=${destinations}&key=${GOOGLE_MAPS_API_KEY}`;
-  
-      const distanceResponse = await axios.get(distanceMatrixUrl);
-      console.log(distanceResponse.data);   
-  
-      carsWithPricing.forEach((car, index) => {
-        if (distanceResponse.data.status != 'REQUEST_DENIED') {  
-            const distances = distanceResponse.data.rows[0].elements;
-            if(distances[index].status === 'OK'){
-            car.distance = distances[index].distance.value; // Distance in meters
-            car.duration = distances[index].duration.value; // Duration in seconds
-           }
-           else {
-            car.distance = null; 
-            car.duration = null; 
-        }
+      const destinationChunks = chunkArray(carsWithPricing.map(car => `${car.latitude},${car.longitude}`), Math.floor(MAX_ELEMENTS / 2));
+
+      let distances = [];
+
+      for (const chunk of destinationChunks) {
+        const destinations = chunk.join('|');
+        const distanceMatrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${origins}&destinations=${destinations}&key=${GOOGLE_MAPS_API_KEY}`;
+        const distanceResponse = await axios.get(distanceMatrixUrl);
+
+        if (distanceResponse.data.status === 'OK') {
+          distances = distances.concat(distanceResponse.data.rows[0].elements);
         } else {
-            car.distance = null; 
-            car.duration = null; 
+          console.error('Error with the Distance Matrix API:', distanceResponse.data.status);
+          chunk.forEach(() => {
+            distances.push({ status: 'ERROR' });
+          });
+        }
+      }
+
+      carsWithPricing.forEach((car, index) => {
+        const distanceElement = distances[index];
+        if (distanceElement.status === 'OK') {
+          car.distance = distanceElement.distance.value;
+          car.duration = distanceElement.duration.value;
+        } else {
+          car.distance = null;
+          car.duration = null;
         }
       });
+
       carsWithPricing.sort((a, b) => a.distance - b.distance);
-     } 
+    }
     res.status(200).json({ availableCars: carsWithPricing });
   } catch (error) {
     console.error(error);
@@ -960,7 +978,7 @@ router.post('/onecar', async (req, res) => {
       }
       if (cph) {
         const hours = calculateTripHours(startDate, endDate, startTime, endTime);
-        const amount =  Math.round(cph.costperhr * hours);
+        const amount = Math.round(cph.costperhr * hours);
         const costperhr = cph.costperhr;
         // Include pricing information in the car object
         res.status(200).json({ cars, pricing: { costPerHr: costperhr, hours: hours, amount: amount } });
@@ -1228,7 +1246,11 @@ router.post('/booking', authenticate, async (req, res) => {
     try {
       let cph = await Pricing.findOne({ where: { carid: carId } })
       let hours = calculateTripHours(startDate, endDate, startTime, endTime);
-      let amount =  Math.round(cph.costperhr * hours);
+      let amount = Math.round(cph.costperhr * hours);
+      let gstAmount = amount * 0.18;
+      let totalUserAmount = amount + gstAmount;
+      let tds = ( amount * 0.65 ) * 0.01;
+      let totalHostAmount = ( amount * 0.65 ) - tds;
       const bookingid = uuid.v4();
       let booking = await Booking.create({
         Bookingid: bookingid,
@@ -1239,7 +1261,11 @@ router.post('/booking', authenticate, async (req, res) => {
         endTripTime: endTime,
         id: userId,
         status: 5,
-        amount: amount
+        amount: amount,
+        GSTAmount: gstAmount,
+        totalUserAmount: totalUserAmount,
+        TDSAmount: tds,
+        totalHostAmount: totalHostAmount,
       });
 
       const bookings = {
@@ -1252,7 +1278,9 @@ router.post('/booking', authenticate, async (req, res) => {
         startTripDate: booking.startTripDate,
         endTripDate: booking.endTripDate,
         startTripTime: booking.startTripTime,
-        endTripTime: booking.endTripTime
+        endTripTime: booking.endTripTime,
+        gstAmount: booking.GSTAmount,
+        totalUserAmount: booking.totalUserAmount,
       }
       req.body.bookingId = booking.Bookingid;
       req.body.userId = userId;
@@ -1603,9 +1631,13 @@ router.post('/extend-booking', authenticate, async (req, res) => {
     booking.endTripDate = newEndDate;
     booking.endTripTime = newEndTime;
     booking.amount += additionalAmount; // Assuming amount field exists in the Booking model
-
+    booking.GSTAmount +=  ( additionalAmount * 0.18 ); 
+    booking.totalUserAmount += additionalAmount + ( additionalAmount * 0.18 ); 
+    booking.tds += ( additionalAmount * 0.01 );
+    booking.totalHostAmount += ( additionalAmount * 0.65 ) - ( additionalAmount * 0.65 ) * 0.01;
     await Booking.update(
-      { endTripDate: booking.endTripDate, endTripTime: booking.endTripTime, amount: booking.amount },
+      { endTripDate: booking.endTripDate, endTripTime: booking.endTripTime, amount: booking.amount
+        ,GSTAmount: booking.GSTAmount , totalUserAmount: booking.totalUserAmount, tds : booking.tds, totalHostAmount: booking.totalHostAmount },
       { where: { Bookingid: bookingId } });
 
     const bookings = {
@@ -1619,6 +1651,8 @@ router.post('/extend-booking', authenticate, async (req, res) => {
       endTripDate: booking.endTripDate,
       startTripTime: booking.startTripTime,
       endTripTime: booking.endTripTime,
+      GSTAmount: booking.GSTAmount,
+      totalUserAmount : booking.totalUserAmount,
     }
 
     res.status(200).json({ message: 'Booking extended successfully', bookings });
@@ -1628,6 +1662,21 @@ router.post('/extend-booking', authenticate, async (req, res) => {
   }
 });
 //Trip-Started
+router.post('/view-breakup', authenticate, async (req, res) => {
+  try {
+    let { amount }= req.body;
+    let gstAmount = amount * 0.18;
+    let totalUserAmount = amount + gstAmount;
+     return res.status(200).json({         
+      amount: amount,
+      GSTAmount: gstAmount,
+      totalUserAmount: totalUserAmount,
+     });
+  }
+  catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 router.post('/Trip-Started', authenticate, async (req, res) => {
   try {
@@ -1659,14 +1708,21 @@ router.post('/Trip-Started', authenticate, async (req, res) => {
 //Cancel-Booking
 router.post('/Cancel-Booking', authenticate, async (req, res) => {
   try {
-    const { bookingId } = req.body;
+    const { bookingId, CancelReason } = req.body;
     const booking = await Booking.findOne(
       { where: { Bookingid: bookingId } }
     );
     if (booking) {
       if (booking.status === 1) {
+        const today = new Date();
+        const cancelDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        console.log(cancelDate);
         await Booking.update(
-          { status: 4 },
+          {
+            status: 4,
+            cancelDate: cancelDate,
+            cancelReason: CancelReason
+          },
           { where: { Bookingid: bookingId } }
         );
         res.status(201).json({ message: 'Trip Has been Cancelled' });
@@ -1729,6 +1785,8 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             id: bookings.id,
             status: bookings.status,
             amount: bookings.amount,
+            gstAmount: bookings.GSTAmount,
+            totalUserAmount: bookings.totalUserAmount,
             transactionId: bookings.Transactionid,
             startTripDate: bookings.startTripDate,
             endTripDate: bookings.endTripDate,
@@ -1741,7 +1799,10 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             carImage3: carImages[2] ? carImages[2] : null,
             carImage4: carImages[3] ? carImages[3] : null,
             carImage5: carImages[4] ? carImages[4] : null,
+            cancelDate: bookings.cancelDate,
+            cancelReason: bookings.cancelReason,
             createdAt: bookings.createdAt,
+            
           }
         }
         else {
@@ -1751,6 +1812,8 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             id: bookings.id,
             status: bookings.status,
             amount: bookings.amount,
+            gstAmount: bookings.GSTAmount,
+            totalUserAmount: bookings.totalUserAmount,
             transactionId: bookings.Transactionid,
             startTripDate: bookings.startTripDate,
             endTripDate: bookings.endTripDate,
@@ -1763,6 +1826,8 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             carImage3: null,
             carImage4: null,
             carImage5: null,
+            cancelDate: bookings.cancelDate,
+            cancelReason: bookings.cancelReason,
             createdAt: bookings.createdAt,
           }
         }

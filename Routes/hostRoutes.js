@@ -147,6 +147,9 @@ router.post('/login', authenticate, async (req, res) => {
 router.post('/verify-otp', async (req, res) => {
   const { phone, otp } = req.body;
   const user = await User.findOne({ where: { phone } })
+  if(!user) {
+    return res.status(401).json({ message: 'Invalid Phone' });
+  }
   const fixed_otp = user.otp;
   if (fixed_otp === otp) {
     const user = await User.findOne({ where: { phone } });
@@ -836,19 +839,25 @@ router.get('/host-bookings', authenticate, async (req, res) => {
         }
       ],
     });
+    console.log(bookings);
     if (bookings) {
       const hostBooking = bookings.map(async (booking) => {
         const bk = {
           bookingId: booking.Bookingid,
           carId: booking.carid,
+          carModel: booking.Car.carmodel,
           id: booking.id,
           status: booking.status,
           amount: booking.amount,
+          tdsAmount: booking.TDSAmount,
+          totalHostAmount: booking.totalHostAmount,
           transactionId: booking.Transactionid,
           startTripDate: booking.startTripDate,
           endTripDate: booking.endTripDate,
           startTripTime: booking.startTripTime,
           endTripTime: booking.endTripTime,
+          cancelDate: booking.cancelDate,
+          cancelReason: booking.cancelReason,
           createdAt: booking.createdAt,
         }
         return { ...bk };
@@ -925,8 +934,12 @@ router.post('/booking-request', authenticate, async (req, res) => {
     return res.status(201).json({ message: 'Booking confirmed by host' });
     }
     if(bk.status == '4'){
+      const today = new Date();
+      const cancelDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       await booking.update({
        status: 4,
+       cancelDate: cancelDate,
+       cancelReason: bk.CancelReason
      });
      return res.status(201).json({ message: 'Booking cancelled by host' });
      }
