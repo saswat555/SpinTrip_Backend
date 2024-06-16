@@ -29,13 +29,19 @@ const storage = multer.diskStorage({
 });
 const fs = require('fs');
 const GOOGLE_MAPS_API_KEY = `${process.env.GOOGLE_MAPS_API_KEY}`;
-const MAX_ELEMENTS = 30; 
-function chunkArray(array, chunkSize) {
-  const chunks = [];
-  for (let i = 0; i < array.length; i += chunkSize) {
-    chunks.push(array.slice(i, chunkSize + i));
-  }
-  return chunks;
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const R = 6371; // Radius of the Earth in km
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // Distance in km
 }
 const upload = multer({ storage: storage });
 //Login
@@ -694,35 +700,8 @@ router.post('/findcars', authenticate, async (req, res) => {
     });
     const carsWithPricing = (await Promise.all(pricingPromises)).filter(car => car !== null);
     if (latitude && longitude) {
-      const origins = `${latitude},${longitude}`;
-      const destinationChunks = chunkArray(carsWithPricing.map(car => `${car.latitude},${car.longitude}`), Math.floor(MAX_ELEMENTS / 2));
-
-      let distances = [];
-
-      for (const chunk of destinationChunks) {
-        const destinations = chunk.join('|');
-        const distanceMatrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${origins}&destinations=${destinations}&key=${GOOGLE_MAPS_API_KEY}`;
-        const distanceResponse = await axios.get(distanceMatrixUrl);
-
-        if (distanceResponse.data.status === 'OK') {
-          distances = distances.concat(distanceResponse.data.rows[0].elements);
-        } else {
-          console.error('Error with the Distance Matrix API:', distanceResponse.data.status);
-          chunk.forEach(() => {
-            distances.push({ status: 'ERROR' });
-          });
-        }
-      }
-
-      carsWithPricing.forEach((car, index) => {
-        const distanceElement = distances[index];
-        if (distanceElement.status === 'OK') {
-          car.distance = distanceElement.distance.value;
-          car.duration = distanceElement.duration.value;
-        } else {
-          car.distance = null;
-          car.duration = null;
-        }
+      carsWithPricing.forEach(car => {
+        car.distance = haversineDistance(latitude, longitude, car.latitude, car.longitude);
       });
 
       carsWithPricing.sort((a, b) => a.distance - b.distance);
