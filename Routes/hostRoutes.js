@@ -13,6 +13,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { parseString } = require('xml2js');
+const sharp = require('sharp');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const router = express.Router();
 const chatController = require('../Controller/chatController');
@@ -25,12 +26,22 @@ const carImageStorage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    // Extracting the number from the fieldname (e.g., "carImage_1")
     const imageNumber = file.fieldname.split('_')[1];
     cb(null, `carImage_${imageNumber}${path.extname(file.originalname)}`);
   }
 });
 
+async function resizeImage(filePath) {
+  try {
+    await sharp(filePath)
+      .resize(800, 600) // Example dimensions
+      .toFile(`${filePath}-resized.jpg`);
+    fs.unlinkSync(filePath); // Remove the original file
+    fs.renameSync(`${filePath}-resized.jpg`, filePath); // Rename resized file to original file name
+  } catch (error) {
+    console.error('Error resizing image:', error);
+  }
+}
 const GOOGLE_MAPS_API_KEY = `${process.env.GOOGLE_MAPS_API_KEY}`;
 async function geocodeAddress(address) {
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
@@ -45,13 +56,12 @@ async function geocodeAddress(address) {
 }
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const userId = req.user.id; // Assuming req.user.id contains the user ID
+    const userId = req.user.id;
     const uploadPath = path.join(__dirname, '../uploads', userId.toString());
-    fs.mkdirSync(uploadPath, { recursive: true }); // Ensure directory exists
+    fs.mkdirSync(uploadPath, { recursive: true });
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    // Use field name as file name
     let filename = file.fieldname + path.extname(file.originalname);
     cb(null, filename);
   }
