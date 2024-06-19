@@ -30,6 +30,7 @@
     "pg-hstore": "^2.3.4",
     "razorpay": "^2.0.0",
     "sequelize": "^6.19.0",
+    "sharp": "^0.33.4",
     "socket.io": "^4.7.5",
     "winston": "^3.13.0",
     "xml2js": "^0.6.2"

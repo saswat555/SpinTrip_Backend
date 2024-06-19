@@ -44,6 +44,25 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   return R * c; // Distance in km
 }
 const upload = multer({ storage: storage });
+const resizeImage = async (buffer) => {
+  let resizedBuffer = buffer;
+  try {
+    resizedBuffer = await sharp(buffer)
+      .resize({ width: 1920, height: 1080, fit: 'inside' }) // Adjust the dimensions as needed
+      .jpeg({ quality: 80 })
+      .toBuffer();
+
+    // Keep resizing until the buffer size is under 400KB
+    while (resizedBuffer.length > 400 * 1024) {
+      resizedBuffer = await sharp(resizedBuffer)
+        .jpeg({ quality: 80 })
+        .toBuffer();
+    }
+  } catch (error) {
+    console.error('Error resizing image:', error);
+  }
+  return resizedBuffer;
+};
 //Login
 router.post('/login', async (req, res) => {
   const { phone } = req.body;
@@ -205,6 +224,7 @@ router.put('/profile', authenticate, async (req, res) => {
   }
 });
 
+// Verify route with image resizing
 router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCount: 1 }, { name: 'dlFile', maxCount: 1 }, { name: 'profilePic', maxCount: 1 }]), async (req, res) => {
   try {
     const userId = req.user.id;
@@ -220,28 +240,27 @@ router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCoun
       if (req.files['profilePic']) files.push(req.files['profilePic'][0]);
     }
 
+    const uploadPath = path.join(__dirname, '../uploads', userId.toString());
+    fs.mkdirSync(uploadPath, { recursive: true });
 
-    // Update additional user information
+    for (let file of files) {
+      const resizedImageBuffer = await resizeImage(file.buffer);
+      const filename = file.fieldname + path.extname(file.originalname);
+      const filePath = path.join(uploadPath, filename);
+      fs.writeFileSync(filePath, resizedImageBuffer);
+      file.destination = uploadPath; // Update file destination to store in DB
+    }
+
     const { dlFile, aadharFile, profilePic } = req.files;
+
     if (dlFile || aadharFile) {
-
-      // await user.update({
-      //   verification_status:1
-      // }, { where: { id: userId } });
-
       await UserAdditional.update({
-        dl: dlFile[0].destination,
-        aadhar: aadharFile[0].destination,
-        //profilepic: profilePic[0].destination,
+        dl: dlFile ? dlFile[0].destination : undefined,
+        aadhar: aadharFile ? aadharFile[0].destination : undefined,
         verification_status: 1
       }, { where: { id: userId } });
     }
     if (profilePic) {
-
-      // await user.update({
-      //   verification_status:1
-      // }, { where: { id: userId } });
-
       await UserAdditional.update({
         profilepic: profilePic[0].destination,
       }, { where: { id: userId } });
