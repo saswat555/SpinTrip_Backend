@@ -3,7 +3,7 @@ const express = require('express');
 const uuid = require('uuid');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host } = require('../Models');
+const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host, Tax } = require('../Models');
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { initiatePayment, checkPaymentStatus } = require('../Controller/paymentController');
 const chatController = require('../Controller/chatController');
@@ -1245,10 +1245,20 @@ router.post('/booking', authenticate, async (req, res) => {
       let cph = await Pricing.findOne({ where: { carid: carId } })
       let hours = calculateTripHours(startDate, endDate, startTime, endTime);
       let amount = Math.round(cph.costperhr * hours);
-      let gstAmount = amount * 0.18;
+      const tax = await Tax.findOne({ where: { id: 1 } }); // Adjust the condition as necessary
+      if (!tax) {
+        return res.status(404).json({ message: 'Tax data not found' });
+      }
+
+      const gstRate = tax.GST / 100;
+      const tdsRate = tax.TDS / 100;
+      const HostCommision = 1 - ( tax.Commission / 100 );
+
+      // Update booking amounts using dynamic tax rates
+      let gstAmount = amount * gstRate;
       let totalUserAmount = amount + gstAmount;
-      let tds = ( amount * 0.65 ) * 0.01;
-      let totalHostAmount = ( amount * 0.65 ) - tds;
+      let tds = (amount * HostCommision) * tdsRate;
+      let totalHostAmount = ( amount * HostCommision) - tds;
       const bookingid = uuid.v4();
       let booking = await Booking.create({
         Bookingid: bookingid,
@@ -1629,13 +1639,24 @@ router.post('/extend-booking', authenticate, async (req, res) => {
     booking.endTripDate = newEndDate;
     booking.endTripTime = newEndTime;
     booking.amount += additionalAmount; // Assuming amount field exists in the Booking model
-    booking.GSTAmount +=  ( additionalAmount * 0.18 ); 
-    booking.totalUserAmount += additionalAmount + ( additionalAmount * 0.18 ); 
-    booking.tds += ( additionalAmount * 0.01 );
-    booking.totalHostAmount += ( additionalAmount * 0.65 ) - ( additionalAmount * 0.65 ) * 0.01;
+    const tax = await Tax.findOne({ where: { id: 1 } }); // Adjust the condition as necessary
+    if (!tax) {
+      return res.status(404).json({ message: 'Tax data not found' });
+    }
+
+    const gstRate = tax.GST / 100;
+    const tdsRate = tax.TDS / 100;
+    const hostCommission = 1 - (tax.Commission / 100);
+    // Update booking amounts using dynamic tax rates
+    booking.GSTAmount += (additionalAmount * gstRate);
+    booking.totalUserAmount += additionalAmount + (additionalAmount * gstRate);
+    booking.tds += (additionalAmount * tdsRate);
+    booking.totalHostAmount += (additionalAmount * hostCommission) - ((additionalAmount * hostCommission) * tdsRate);
     await Booking.update(
-      { endTripDate: booking.endTripDate, endTripTime: booking.endTripTime, amount: booking.amount
-        ,GSTAmount: booking.GSTAmount , totalUserAmount: booking.totalUserAmount, tds : booking.tds, totalHostAmount: booking.totalHostAmount },
+      {
+        endTripDate: booking.endTripDate, endTripTime: booking.endTripTime, amount: booking.amount
+        , GSTAmount: booking.GSTAmount, totalUserAmount: booking.totalUserAmount, tds: booking.tds, totalHostAmount: booking.totalHostAmount
+      },
       { where: { Bookingid: bookingId } });
 
     const bookings = {
@@ -1650,7 +1671,7 @@ router.post('/extend-booking', authenticate, async (req, res) => {
       startTripTime: booking.startTripTime,
       endTripTime: booking.endTripTime,
       GSTAmount: booking.GSTAmount,
-      totalUserAmount : booking.totalUserAmount,
+      totalUserAmount: booking.totalUserAmount,
     }
 
     res.status(200).json({ message: 'Booking extended successfully', bookings });
@@ -1662,16 +1683,34 @@ router.post('/extend-booking', authenticate, async (req, res) => {
 //Trip-Started
 router.post('/view-breakup', authenticate, async (req, res) => {
   try {
-    let { amount }= req.body;
-    let gstAmount = amount * 0.18;
+    let { carId, startDate, endDate, startTime, endTime } = req.body;
+    const cph = await Pricing.findOne({ where: { carid: carId } });
+    const hours = calculateTripHours(startDate, endDate, startTime, endTime);
+    if (!cph) {
+      return res.status(404).json({ message: 'Pricing of the car not available' });
+    }
+    const amount = Math.round(cph.costperhr * hours);
+    const costperhr = cph.costperhr;
+
+    // Fetch the latest GST value from the database
+    const tax = await Tax.findOne({ where: { id: 1 } }); // Assuming there's only one row for tax or fetch as per your requirements
+    if (!tax) {
+      return res.status(404).json({ message: 'Tax data not found' });
+    }
+
+    let gstAmount = amount * (tax.GST / 100);
     let totalUserAmount = amount + gstAmount;
-     return res.status(200).json({         
-      amount: amount,
-      GSTAmount: gstAmount,
-      totalUserAmount: totalUserAmount,
-     });
-  }
-  catch (error) {
+
+    return res.status(200).json({
+      totalHours: hours,
+      costPerHr: costperhr,
+      baseAmount: amount,
+      gstPercent: tax.GST,
+      gstAmount: gstAmount,
+      grossAmount: totalUserAmount,
+    });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -1800,7 +1839,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             cancelDate: bookings.cancelDate,
             cancelReason: bookings.cancelReason,
             createdAt: bookings.createdAt,
-            
+
           }
         }
         else {

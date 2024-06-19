@@ -47,7 +47,7 @@ db.Tax = require('./TaxModel')(sequelize, DataTypes);
 db.Support = require('./supportModel')(sequelize, DataTypes);
 db.SupportChat = require('./supportChatModel')(sequelize, DataTypes);
 const associateModels = () => {
-  const { User, Admin, Car, Host, UserAdditional, Booking, Listing, CarAdditional, Feedback, Support, SupportChat } = sequelize.models;
+  const { User, Admin, Car, Host, UserAdditional, Booking, Listing, CarAdditional, Feedback, Support, SupportChat, Tax } = sequelize.models;
   
   Support.belongsTo(User, { foreignKey: 'userId' });
   SupportChat.belongsTo(Support, { foreignKey: 'supportId' });
