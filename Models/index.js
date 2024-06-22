@@ -68,6 +68,7 @@ const associateModels = () => {
   Booking.hasOne(Car);
   Booking.belongsTo(User, { foreignKey: 'id' });
   Booking.belongsTo(Car, { foreignKey: 'carid' });
+  Booking.belongsTo(UserAdditional, { foreignKey: 'id' });
   User.hasOne(Admin);
   User.hasOne(Host);
   User.hasMany(Booking);

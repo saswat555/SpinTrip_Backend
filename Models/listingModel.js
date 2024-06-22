@@ -63,7 +63,8 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
     },
     latitude: DataTypes.FLOAT,
-    longitude: DataTypes.FLOAT
+    longitude: DataTypes.FLOAT,
+    address: DataTypes.TEXT,
   });
 
   // Define associations here, if needed

@@ -42,18 +42,7 @@ async function resizeImage(filePath) {
     console.error('Error resizing image:', error);
   }
 }
-const GOOGLE_MAPS_API_KEY = `${process.env.GOOGLE_MAPS_API_KEY}`;
-async function geocodeAddress(address) {
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
-  const response = await axios.get(url);
-  if (response.data.status === 'OK') {
-    const location = response.data.results[0].geometry.location;
-    console.log(response.data);
-    return { lat: location.lat, lng: location.lng };
-  } else {
-    throw new Error('Geocoding failed.');
-  }
-}
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const userId = req.user.id;
@@ -306,6 +295,8 @@ router.post('/car', authenticate, async (req, res) => {
     engineNumber,
     registrationYear,
     bodyType,
+    latitude,
+    longitude,
     address,
     timeStamp } = req.body;
 
@@ -317,11 +308,7 @@ router.post('/car', authenticate, async (req, res) => {
       return res.status(401).json({ message: 'No Host found' });
     }
     const carid = uuid.v4();
-    let lat, lng;
-    if (address) {
-      ({ lat, lng } = await geocodeAddress(address));
-      console.log(lat, lng);
-    }
+
 
     const car = await Car.create({
       carmodel: carModel,
@@ -369,8 +356,9 @@ router.post('/car', authenticate, async (req, res) => {
       id: listingid,
       carid: car.carid,
       hostid: carhostid,
-      latitude: lat,
-      longitude: lng,
+      latitude: latitude,
+      longitude: longitude,
+      address: address,
     })
 
     let postedCar = {
@@ -846,6 +834,10 @@ router.get('/host-bookings', authenticate, async (req, res) => {
           model: Car,
           where: { hostId: hostid },
           attributes: ['carmodel', 'chassisno', 'Rcnumber', 'Enginenumber'],
+        },
+        {
+          model: UserAdditional,
+          attributes: ['FullName'] // Assuming 'fullName' is the column name in 'UserAdditional'
         }
       ],
     });
@@ -857,6 +849,7 @@ router.get('/host-bookings', authenticate, async (req, res) => {
           carId: booking.carid,
           carModel: booking.Car.carmodel,
           id: booking.id,
+          bookedBy: booking.UserAdditional ? booking.UserAdditional.FullName : null,
           status: booking.status,
           amount: booking.amount,
           tdsAmount: booking.TDSAmount,
@@ -883,7 +876,6 @@ router.get('/host-bookings', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
 router.post('/rating', authenticate, async (req, res) => {
   try {
     let { bookingId, rating } = req.body;
