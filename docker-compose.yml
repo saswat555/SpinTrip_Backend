@@ -14,6 +14,26 @@ services:
     depends_on:
       - db
 
+  admin:
+    build: ../SpinTrip-Admin
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=1234
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=mydatabase
+      - COOKIE_SECRET=Qd4wdmnQmDOJUNmqubhELirrXJghkE0E
+      - API_HOST=54.206.23.199
+      - API_PORT=2000
+      - DATABASE_URL=postgres://postgres:1234@db:5432/mydatabase
+      - DATABASE_DIALECT=postgres
+      - PORT=3000
+
+    depends_on:
+      - db    
+
   db:
     image: postgres:16
     environment:

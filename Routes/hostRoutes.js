@@ -844,7 +844,46 @@ router.get('/host-bookings', authenticate, async (req, res) => {
     console.log(bookings);
     if (bookings) {
       const hostBooking = bookings.map(async (booking) => {
-        const bk = {
+        const carFolder = path.join('./uploads/host/CarAdditional', booking.carid);
+        const car = await Car.findOne({
+          where: {
+            carid: booking.carid,
+          }
+        });
+        if (!car) {
+          return;
+        }
+        let carImages, bk;
+        if (fs.existsSync(carFolder)) {
+          const files = fs.readdirSync(carFolder);
+          carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${booking.carid}/${file}`);
+          bk = {
+            bookingId: booking.Bookingid,
+            carId: booking.carid,
+            carModel: booking.Car.carmodel,
+            id: booking.id,
+            bookedBy: booking.UserAdditional ? booking.UserAdditional.FullName : null,
+            status: booking.status,
+            amount: booking.amount,
+            tdsAmount: booking.TDSAmount,
+            totalHostAmount: booking.totalHostAmount,
+            transactionId: booking.Transactionid,
+            startTripDate: booking.startTripDate,
+            endTripDate: booking.endTripDate,
+            startTripTime: booking.startTripTime,
+            endTripTime: booking.endTripTime,
+            carImage1: carImages[0] ? carImages[0] : null,
+            carImage2: carImages[1] ? carImages[1] : null,
+            carImage3: carImages[2] ? carImages[2] : null,
+            carImage4: carImages[3] ? carImages[3] : null,
+            carImage5: carImages[4] ? carImages[4] : null,
+            cancelDate: booking.cancelDate,
+            cancelReason: booking.cancelReason,
+            createdAt: booking.createdAt,
+          }
+        }
+        else{
+          bk = {
           bookingId: booking.Bookingid,
           carId: booking.carid,
           carModel: booking.Car.carmodel,
@@ -859,10 +898,16 @@ router.get('/host-bookings', authenticate, async (req, res) => {
           endTripDate: booking.endTripDate,
           startTripTime: booking.startTripTime,
           endTripTime: booking.endTripTime,
+          carImage1:  null,
+          carImage2:  null,
+          carImage3:  null,
+          carImage4:  null,
+          carImage5:  null,
           cancelDate: booking.cancelDate,
           cancelReason: booking.cancelReason,
           createdAt: booking.createdAt,
         }
+      } 
         return { ...bk };
       });
       const hostBookings = await Promise.all(hostBooking);
