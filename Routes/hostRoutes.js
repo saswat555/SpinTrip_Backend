@@ -191,11 +191,10 @@ router.get('/profile', authenticate, async (req, res) => {
   try {
     const hostId = req.user.id;
     const host = await Host.findByPk(hostId);
-
     if (!host) {
       return res.status(404).json({ message: 'Host not found' });
     }
-
+    const user = await User.findOne({where: {id: hostId}});
     const cars = await Car.findAll({ where: { hostId: host.id } })
     let additionalInfo = await UserAdditional.findByPk(hostId);
     const userFolder = path.join('./uploads', String(hostId));
@@ -216,6 +215,7 @@ router.get('/profile', authenticate, async (req, res) => {
           aadharNumber: additionalInfo.AadharVfid,
           address: additionalInfo.Address,
           verificationStatus: additionalInfo.verification_status,
+          phone: user.phone,
           profilePic: profilePic
         }
       }
@@ -228,6 +228,7 @@ router.get('/profile', authenticate, async (req, res) => {
           aadharNumber: additionalInfo.AadharVfid,
           address: additionalInfo.Address,
           verificationStatus: additionalInfo.verification_status,
+          phone: user.phone,
           dl: 'null',
           aadhar: 'null',
           profilePic: 'null'
@@ -244,6 +245,7 @@ router.get('/profile', authenticate, async (req, res) => {
         aadharNumber: additionalInfo?.AadharVfid || null,
         address: additionalInfo?.Address || null,
         verificationStatus: additionalInfo?.verification_status || null,
+        phone: user.phone,
         dl: 'null',
         aadhar: 'null',
         profilePic: 'null'
@@ -326,7 +328,11 @@ router.post('/car', authenticate, async (req, res) => {
       hostId: carhostid,
       timestamp: timeStamp
     })
-    await CarAdditional.create({ carid: car.carid });
+    await CarAdditional.create({ 
+      carid: car.carid,       
+      latitude: latitude,
+      longitude: longitude,
+      address: address });
     const carAdditional = await CarAdditional.findOne({
       where: {
         carid: car.carid,
@@ -356,9 +362,6 @@ router.post('/car', authenticate, async (req, res) => {
       id: listingid,
       carid: car.carid,
       hostid: carhostid,
-      latitude: latitude,
-      longitude: longitude,
-      address: address,
     })
 
     let postedCar = {
@@ -455,6 +458,9 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
       bluetooth,
       airFreshner,
       ventelatedFrontSeat,
+      latitude,
+      longitude,
+      address,
       additionalInfo
     } = req.body;
     const car = await Car.findOne({ where: { carid: carId } })
@@ -501,6 +507,9 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
         carimage4: carImage_4 ? carImage_4[0].destination : null,
         carimage5: carImage_5 ? carImage_5[0].destination : null,
         verification_status: 1,
+        latitude: latitude,
+        longitude: longitude,
+        address: address,
         Additionalinfo: additionalInfo
       },
         { where: { carid: carId } });
@@ -560,6 +569,9 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
         carImage3: carAdditional.carimage3,
         carImage4: carAdditional.carimage4,
         carImage5: carAdditional.carimage5,
+        latitude: carAdditional.latitude,
+        longitude: carAdditional.longitude,
+        address: carAdditional.address,
         verificationStatus: carAdditional.verification_status,
       }
       res.status(201).json({ message: 'Car Additional added', carAdditionals });
@@ -603,8 +615,6 @@ router.get('/listing', authenticate, async (req, res) => {
             rcNumber: car.Rcnumber,
             type: car.type,
             carModel: car.carmodel,
-            latitude: lstg.latitude,
-            longitude: lstg.longitude,
             carImage1: carImages[0] ? carImages[0] : null,
             carImage2: carImages[1] ? carImages[1] : null,
             carImage3: carImages[2] ? carImages[2] : null,
@@ -630,8 +640,6 @@ router.get('/listing', authenticate, async (req, res) => {
             rcNumber: car.Rcnumber,
             type: car.type,
             carModel: car.carmodel,
-            latitude: lstg.latitude,
-            longitude: lstg.longitude,
             carImage1: null,
             carImage2: null,
             carImage3: null,
@@ -853,6 +861,7 @@ router.get('/host-bookings', authenticate, async (req, res) => {
         if (!car) {
           return;
         }
+        const carAdditional = await CarAdditional.findOne({ where: { carid: booking.carid } });
         let carImages, bk;
         if (fs.existsSync(carFolder)) {
           const files = fs.readdirSync(carFolder);
@@ -877,6 +886,8 @@ router.get('/host-bookings', authenticate, async (req, res) => {
             carImage3: carImages[2] ? carImages[2] : null,
             carImage4: carImages[3] ? carImages[3] : null,
             carImage5: carImages[4] ? carImages[4] : null,
+            latitude: carAdditional.latitude,
+            longitude: carAdditional.longitude,
             cancelDate: booking.cancelDate,
             cancelReason: booking.cancelReason,
             createdAt: booking.createdAt,
@@ -903,6 +914,8 @@ router.get('/host-bookings', authenticate, async (req, res) => {
           carImage3:  null,
           carImage4:  null,
           carImage5:  null,
+          latitude: carAdditional.latitude,
+          longitude: carAdditional.longitude,
           cancelDate: booking.cancelDate,
           cancelReason: booking.cancelReason,
           createdAt: booking.createdAt,
@@ -1062,6 +1075,8 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
       carImage4: carAdditional.carimage4,
       carImage5: carAdditional.carimage5,
       verificationStatus: carAdditional.verification_status,
+      latitude: carAdditional.latitude,
+      longitude: carAdditional.longitude,
       rcNumber: car.Rcnumber,
       type: car.type,
       carModel: car.carmodel,

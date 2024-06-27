@@ -646,8 +646,8 @@ router.post('/findcars', authenticate, async (req, res) => {
           reverseCamera: carAdditional.Reversecamera,
           transmission: carAdditional.Transmission,
           airBags: carAdditional.Airbags,
-          latitude: listing.dataValues.latitude,
-          longitude: listing.dataValues.longitude,
+          latitude: carAdditional.latitude,
+          longitude: carAdditional.longitude,
           fuelType: carAdditional.FuelType,
           additionalInfo: carAdditional.Additionalinfo,
           carImage1: carImages[0] ? carImages[0] : null,
@@ -695,8 +695,8 @@ router.post('/findcars', authenticate, async (req, res) => {
           bluetooth: carAdditional.bluetooth,
           airFreshner: carAdditional.airFreshner,
           ventelatedFrontSeat: carAdditional.ventelatedFrontSeat,
-          latitude: listing.dataValues.latitude,
-          longitude: listing.dataValues.longitude,
+          latitude: carAdditional.latitude,
+          longitude: carAdditional.longitude,
           fuelType: carAdditional.FuelType,
           additionalInfo: carAdditional.Additionalinfo,
           carImage1: null,
@@ -1469,6 +1469,8 @@ router.post('/getCarAdditional', async (req, res) => {
       carImage4: carAdditional.carimage4,
       carImage5: carAdditional.carimage5,
       verificationStatus: carAdditional.verification_status,
+      latitude: carAdditional.latitude,
+      longitude: carAdditional.longitude,
     }
     // Path to the car's folder in the uploads directory
     const carFolder = path.join('./uploads/host/CarAdditional', carId);
@@ -1930,6 +1932,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
         if (!car) {
           return;
         }
+        const carAdditional = await CarAdditional.findOne({ where: { carid: bookings.carid }});
         let bk;
         if (fs.existsSync(carFolder)) {
           const files = fs.readdirSync(carFolder);
@@ -1954,6 +1957,8 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             carImage3: carImages[2] ? carImages[2] : null,
             carImage4: carImages[3] ? carImages[3] : null,
             carImage5: carImages[4] ? carImages[4] : null,
+            latitude: carAdditional.latitude,
+            longitude: carAdditional.longitude,
             cancelDate: bookings.cancelDate,
             cancelReason: bookings.cancelReason,
             createdAt: bookings.createdAt,
@@ -1981,6 +1986,8 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             carImage3: null,
             carImage4: null,
             carImage5: null,
+            latitude: carAdditional.latitude,
+            longitude: carAdditional.longitude,
             cancelDate: bookings.cancelDate,
             cancelReason: bookings.cancelReason,
             createdAt: bookings.createdAt,

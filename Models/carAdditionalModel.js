@@ -32,6 +32,9 @@ module.exports = (sequelize, DataTypes) => {
       carimage4: DataTypes.STRING,
       carimage5: DataTypes.STRING,
       verification_status: DataTypes.INTEGER,
+      latitude: DataTypes.FLOAT,
+      longitude: DataTypes.FLOAT,
+      address: DataTypes.TEXT,
       timestamp: DataTypes.DATE,
 
     });
