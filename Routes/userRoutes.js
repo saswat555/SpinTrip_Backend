@@ -3,7 +3,7 @@ const express = require('express');
 const uuid = require('uuid');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host, Tax } = require('../Models');
+const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host, Tax, Wishlist } = require('../Models');
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { initiatePayment, checkPaymentStatus } = require('../Controller/paymentController');
 const chatController = require('../Controller/chatController');
@@ -1300,6 +1300,124 @@ router.post('/booking', authenticate, async (req, res) => {
       console.error(error);
       res.status(500).json({ message: 'Error processing booking' });
     }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+router.post('/wishlist', authenticate, async (req, res) => {
+  try {
+    const { carId } = req.body;
+    const userId = req.user.userid;
+    console.log(carId);
+    const car = await Car.findOne({
+      where: {
+        carid: carId,
+      }
+    });
+    if (!car) {
+      res.status(404).json({message: 'Car not found'});
+    }
+    const wishlist = await Wishlist.findOne({
+      where: {
+        userid: userId,
+        carid: carId,
+      }
+    });
+    if (wishlist) {
+      res.status(200).json({message: 'Wishlist Already added'});
+    }
+    else{
+    await Wishlist.create({
+      userid: userId,
+      carid: carId,
+    })
+    res.status(201).json({message: 'Wishlist Added successfully'});
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+router.get('/wishlist', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userid;
+    const wishlist = await Wishlist.findAll({ where: { userid: userId } })
+    if(!wishlist){
+      res.status(200).json({message: 'wishlist bucket is empty' });
+    }
+    console.log(wishlist);
+    const userWishlist = wishlist.map(async (wishlists) => {
+      const carFolder = path.join('./uploads/host/CarAdditional', wishlists.carid);
+      const car = await Car.findOne({
+        where: {
+          carid: wishlists.carid,
+        }
+      });
+      if (!car) {
+        return;
+      }
+      console.log(car);
+      const carAdditional = await CarAdditional.findOne({ where: { carid: wishlists.carid } });
+      let wl;
+      if (fs.existsSync(carFolder)) {
+        const files = fs.readdirSync(carFolder);
+        let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${wishlists.carid}/${file}`);
+        wl = {
+          carId: wishlists.carid,
+          carModel: car.carmodel,
+          type: car.type,
+          brand: car.brand,
+          variant: car.variant,
+          color: car.color,
+          chassisNo: car.chassisno,
+          mileage: car.mileage,
+          registrationYear: car.Registrationyear,
+          rcNumber: car.Rcnumber,
+          bodyType: car.bodytype,
+          rating: car.rating,
+          horsePower: carAdditional.HorsePower,
+          carImage1: carImages[0] ? carImages[0] : null,
+          carImage2: carImages[1] ? carImages[1] : null,
+          carImage3: carImages[2] ? carImages[2] : null,
+          carImage4: carImages[3] ? carImages[3] : null,
+          carImage5: carImages[4] ? carImages[4] : null,
+        }
+      }
+      else {
+        wl = {
+          carId: wishlists.carid,
+          carModel: car.carmodel,
+          type: car.type,
+          brand: car.brand,
+          variant: car.variant,
+          color: car.color,
+          chassisNo: car.chassisno,
+          mileage: car.mileage,
+          registrationYear: car.Registrationyear,
+          rcNumber: car.Rcnumber,
+          bodyType: car.bodytype,
+           rating: car.rating,
+          hostId: car.hostId,
+          carImage1: null,
+          carImage2: null,
+          carImage3: null,
+          carImage4: null,
+          carImage5: null,
+        }
+      }
+      const cph = await Pricing.findOne({ where: { carid: car.carid } });
+       if (cph) {
+      const costperhr = cph.costperhr;
+      // Include pricing information in the car object
+      return { ...wl, costPerHr: costperhr };
+       } else {
+       return { ...wl, costPerHr: null };
+       }
+      return { ...wl };
+    });
+    const userWishlists = await Promise.all(userWishlist);
+    res.status(201).json({message: userWishlists});
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

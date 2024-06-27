@@ -77,7 +77,7 @@ const checkPaymentStatus = async (req, res) => {
       if (response.data.success) {
         const booking = await Booking.findOne({ where: { Transactionid: merchantTransactionId } });
         if (booking) {
-          await booking.update({ status: 2, Transactionid: response.data.data.instrumentResponse.redirectInfo.token });
+          await booking.update({ Transactionid: response.data.data.instrumentResponse.redirectInfo.token });
           return res.status(200).send({ success: true, message: "Payment Success" });
         } else {
           return res.status(404).json({ message: 'Booking not found' });
