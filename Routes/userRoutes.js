@@ -1908,10 +1908,9 @@ router.post('/Cancel-Booking', authenticate, async (req, res) => {
       { where: { Bookingid: bookingId } }
     );
     if (booking) {
-      if (booking.status === 1) {
+      if (booking.status === 1 || booking.status === 5) {
         const today = new Date();
         const cancelDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        console.log(cancelDate);
         await Booking.update(
           {
             status: 4,
