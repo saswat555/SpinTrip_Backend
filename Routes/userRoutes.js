@@ -1339,6 +1339,41 @@ router.post('/wishlist', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+router.post('/cancelwishlist', authenticate, async (req, res) => {
+  try {
+    const { carId } = req.body;
+    const userId = req.user.userid;
+    const car = await Car.findOne({
+      where: {
+        carid: carId,
+      }
+    });
+    if (!car) {
+      return res.status(404).json({message: 'Car not found'});
+    }
+    const wishlist = await Wishlist.findOne({
+      where: {
+        userid: userId,
+        carid: carId,
+      }
+    });
+    if (!wishlist) {
+      res.status(404).json({message: 'Wishlist not present'});
+    }
+    else{
+      await Wishlist.destroy({
+        where: {
+          userid: userId,
+          carid: carId,
+        }
+      });
+    res.status(200).json({message: 'Wishlist removed successfully'});
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 router.get('/wishlist', authenticate, async (req, res) => {
   try {
     const userId = req.user.userid;
