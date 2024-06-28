@@ -1,10 +1,21 @@
 const crypto = require('crypto');
 const axios = require('axios');
+const { Booking } = require('../Models');
 require('dotenv').config();
 
 const initiatePayment = async (req, res) => {
   try {
-    const { bookingId, userId, amount } = req.body;
+    const { bookingId, amount } = req.body;
+    const userId = req.user.id;
+    const booking = await Booking.findOne({ where: { Bookingid: bookingId } });
+    if(!booking)
+    {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+    if(booking.Transactionid != null){
+      return res.status(200).json({ message: 'Payment Already completed' });
+    }
+    console.log(userId);
     const merchantTransactionId = 'M' + Date.now();
     const data = {
       merchantId: process.env.MERCHANT_ID,
@@ -39,9 +50,8 @@ const initiatePayment = async (req, res) => {
         request: payloadMain,
       },
     };
-
-    axios.request(options).then(async (response) => {
-      await Booking.update({ Transactionid: merchantTransactionId }, { where: { Bookingid: bookingId } });
+    await Booking.update({ Transactionid: merchantTransactionId }, { where: { Bookingid: bookingId } });
+    axios.request(options).then(async (response) => {    
       return res.redirect(response.data.data.instrumentResponse.redirectInfo.url);
     }).catch((error) => {
       console.error('Error initiating payment:', error);

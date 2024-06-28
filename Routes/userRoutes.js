@@ -1249,13 +1249,13 @@ router.post('/booking', authenticate, async (req, res) => {
       if (!tax) {
         return res.status(404).json({ message: 'Tax data not found' });
       }
-
-      const gstRate = tax.GST / 100;
+      let spinTripGST = amount * (tax.GST / 100) * (tax.Commission / 100);
+      let hostGst = ( amount - ( amount * tax.Commission / 100 ) ) * (tax.HostGST / 100);
       const tdsRate = tax.TDS / 100;
       const HostCommision = 1 - ( tax.Commission / 100 );
 
       // Update booking amounts using dynamic tax rates
-      let gstAmount = amount * gstRate;
+      let gstAmount = spinTripGST + hostGst;
       let totalUserAmount = amount + gstAmount;
       let tds = (amount * HostCommision) * tdsRate;
       let totalHostAmount = ( amount * HostCommision) - tds;
@@ -1763,13 +1763,14 @@ router.post('/extend-booking', authenticate, async (req, res) => {
     if (!tax) {
       return res.status(404).json({ message: 'Tax data not found' });
     }
-
-    const gstRate = tax.GST / 100;
+    let spinTripGST = additionalAmount * (tax.GST / 100) * (tax.Commission / 100);
+    let hostGst = ( additionalAmount - ( additionalAmount * tax.Commission / 100 ) ) * (tax.HostGST / 100);
+    let gstAmount = spinTripGST + hostGst;
     const tdsRate = tax.TDS / 100;
     const hostCommission = 1 - (tax.Commission / 100);
     // Update booking amounts using dynamic tax rates
-    booking.GSTAmount += (additionalAmount * gstRate);
-    booking.totalUserAmount += additionalAmount + (additionalAmount * gstRate);
+    booking.GSTAmount += gstAmount;
+    booking.totalUserAmount += additionalAmount + gstAmount;
     booking.tds += (additionalAmount * tdsRate);
     booking.totalHostAmount += (additionalAmount * hostCommission) - ((additionalAmount * hostCommission) * tdsRate);
     await Booking.update(
@@ -1817,15 +1818,17 @@ router.post('/view-breakup', authenticate, async (req, res) => {
     if (!tax) {
       return res.status(404).json({ message: 'Tax data not found' });
     }
-
-    let gstAmount = amount * (tax.GST / 100);
+    let spinTripGST = amount * (tax.GST / 100) * (tax.Commission / 100);
+    let hostGst = ( amount - ( amount * tax.Commission / 100 ) ) * (tax.HostGST / 100);
+    let gstAmount = spinTripGST + hostGst;
     let totalUserAmount = amount + gstAmount;
 
     return res.status(200).json({
       totalHours: hours,
       costPerHr: costperhr,
       baseAmount: amount,
-      gstPercent: tax.GST,
+      spinTripGST: spinTripGST,
+      hostGst: hostGst,
       gstAmount: gstAmount,
       grossAmount: totalUserAmount,
     });

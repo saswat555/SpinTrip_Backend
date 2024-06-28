@@ -1,6 +1,6 @@
 module.exports = (sequelize, DataTypes) => {
   const Transaction = sequelize.define("Transaction", {
-    Transactionid: { type: DataTypes.STRING(36), primaryKey: true },
+    Transactionid: { type: DataTypes.STRING, primaryKey: true },
     Bookingid: { type: DataTypes.STRING(36) },
     Date: DataTypes.DATEONLY,  
     time: DataTypes.DATE,
