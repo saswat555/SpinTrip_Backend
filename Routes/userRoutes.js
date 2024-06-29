@@ -34,6 +34,10 @@ const {
   viewSupportChats,
   viewUserSupportTickets,
 } = require("../Controller/supportController");
+<<<<<<< HEAD
+=======
+const { gpsLocation } = require("../Controller/gpsLocation");
+>>>>>>> 5117263cfd5e0cfcd8c0b15fd3a40c9d0a4cc524
 const { Op } = require("sequelize");
 const crypto = require("crypto");
 const multer = require("multer");
