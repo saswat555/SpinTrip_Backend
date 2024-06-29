@@ -8,8 +8,10 @@ const { Sequelize, Op } = require('sequelize');
 const { fn, col, sum, count } = require('sequelize');
 const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand, Feedback } = require('../Models');
 const { and, TIME } = require('sequelize');
+const s3 = require('../s3config'); 
 const { sendOTP, generateOTP } = require('../Controller/hostController');
 const multer = require('multer');
+const multerS3 = require('multer-s3');
 const fs = require('fs');
 const path = require('path');
 const { parseString } = require('xml2js');
@@ -17,7 +19,7 @@ const sharp = require('sharp');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const router = express.Router();
 const chatController = require('../Controller/chatController');
-const { createSupportTicket, addSupportMessage } = require('../Controller/supportController');
+const { createSupportTicket, addSupportMessage, viewSupportChats, viewUserSupportTickets } = require('../Controller/supportController');
 const carImageStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const carId = req.body.carId;
@@ -30,6 +32,21 @@ const carImageStorage = multer.diskStorage({
     cb(null, `carImage_${imageNumber}${path.extname(file.originalname)}`);
   }
 });
+// const carImageStorage = multer({
+//   storage: multerS3({
+//       s3: s3,
+//       bucket: 'spintrip-car-images',
+//       contentType: multerS3.AUTO_CONTENT_TYPE,
+//       acl: 'public-read', // Adjust permissions as needed
+//       key: function (req, file, cb) {
+//           const carId = req.body.carId;
+//           const imageNumber = file.fieldname.split('_')[1];
+//           const fileName = `carImage_${imageNumber}${path.extname(file.originalname)}`;
+//           cb(null, `CarAdditional/${carId}/${fileName}`); // S3 path where the file will be stored
+//       }
+//   })
+// });
+
 
 async function resizeImage(filePath) {
   try {
@@ -1176,6 +1193,8 @@ router.post('/support', authenticate, createSupportTicket);
 // Add a message to a support ticket
 router.post('/support/message', authenticate, addSupportMessage);
 
+router.post('/support/supportChat', authenticate, viewSupportChats);
 
+router.get('/support', authenticate, viewUserSupportTickets);
 module.exports = router;
 

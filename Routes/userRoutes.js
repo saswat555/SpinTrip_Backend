@@ -7,7 +7,7 @@ const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, C
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { initiatePayment, checkPaymentStatus } = require('../Controller/paymentController');
 const chatController = require('../Controller/chatController');
-const { createSupportTicket, addSupportMessage } = require('../Controller/supportController');
+const { createSupportTicket, addSupportMessage, viewSupportChats, viewUserSupportTickets } = require('../Controller/supportController');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
 const multer = require('multer');
@@ -2217,5 +2217,9 @@ router.post('/support', authenticate, createSupportTicket);
 
 // Add a message to a support ticket
 router.post('/support/message', authenticate, addSupportMessage);
+
+router.post('/support/supportChat', authenticate, viewSupportChats);
+
+router.get('/support', authenticate, viewUserSupportTickets);
 
 module.exports = router;

@@ -45,6 +45,19 @@ const escalateSupportTicket = async (req, res) => {
   }
 };
 
+const viewSupportChats = async (req, res) => {
+  try {
+    const { supportId } = req.body;
+    const supportChats = await SupportChat.findAll({ where: {supportId: supportId}});
+    if (!supportChats) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+    res.status(200).json(supportChats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 const resolveSupportTicket = async (req, res) => {
   try {
     const { supportId } = req.body;
@@ -69,15 +82,25 @@ const viewSupportTickets = async (req, res) => {
     }
   };
   
+  const viewUserSupportTickets = async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const tickets = await Support.findAll({ where: {userId:userId}});
+      res.status(200).json({ tickets });
+    } catch (error) {
+      res.status(500).json({ message: 'Server error', error });
+    }
+  };
   // Reply to a support ticket
   const replyToSupportTicket = async (req, res) => {
     const { ticketId, reply } = req.body;
     try {
+      const id = uuid.v4();
       const ticket = await Support.findByPk(ticketId);
       if (!ticket) {
         return res.status(404).json({ message: 'Ticket not found' });
       }
-      await SupportReply.create({ ticketId, reply, adminId: req.user.id });
+      await SupportChat.create({ id:id, ticketId, adminId: req.user.id, reply  });
       ticket.status = 'Replied';
       await ticket.save();
       res.status(200).json({ message: 'Reply sent successfully' });
@@ -86,4 +109,4 @@ const viewSupportTickets = async (req, res) => {
     }
   };
   
-module.exports = { createSupportTicket, viewSupportTickets,replyToSupportTicket,addSupportMessage, escalateSupportTicket, resolveSupportTicket };
+module.exports = { createSupportTicket, viewSupportTickets,replyToSupportTicket,addSupportMessage, escalateSupportTicket, resolveSupportTicket, viewSupportChats, viewUserSupportTickets };

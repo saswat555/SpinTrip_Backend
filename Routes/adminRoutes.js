@@ -8,7 +8,7 @@ const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/admin
 const fs = require('fs');
 const router = express.Router();
 const chatController = require('../Controller/chatController');
-const { viewSupportTickets, replyToSupportTicket, escalateSupportTicket, resolveSupportTicket } = require('../Controller/supportController');
+const { viewSupportTickets, replyToSupportTicket, escalateSupportTicket, resolveSupportTicket, viewSupportChats } = require('../Controller/supportController');
 
 //Login
   
@@ -362,15 +362,17 @@ router.get('/pricing', authenticate, async (req, res) => {
 
 //Support
 // View all support tickets
-router.get('/support', authenticate, viewSupportTickets);
+router.get('/support', viewSupportTickets);
 
 // Reply to a support ticket
-router.post('/support/reply', authenticate, replyToSupportTicket);
+router.post('/support/reply', replyToSupportTicket);
 
 // Escalate a support ticket
-router.post('/support/escalate', authenticate, escalateSupportTicket);
+router.post('/support/escalate', escalateSupportTicket);
 
 // Resolve a support ticket
-router.post('/support/resolve', authenticate, resolveSupportTicket);
+router.post('/support/resolve', resolveSupportTicket);
+
+router.post('/support/supportChat', viewSupportChats);
 
 module.exports = router;
