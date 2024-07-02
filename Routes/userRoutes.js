@@ -1,23 +1,50 @@
 // userRoutes.js
-const express = require('express');
-const uuid = require('uuid');
-const { authenticate, generateToken } = require('../Middleware/authMiddleware');
-const bcrypt = require('bcrypt');
-const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host, Tax, Wishlist } = require('../Models');
-const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
-const { initiatePayment, checkPaymentStatus } = require('../Controller/paymentController');
-const chatController = require('../Controller/chatController');
-const { createSupportTicket, addSupportMessage, viewSupportChats, viewUserSupportTickets } = require('../Controller/supportController');
-const { Op } = require('sequelize');
-const crypto = require('crypto');
-const multer = require('multer');
-const axios = require('axios');
-const path = require('path');
+const express = require("express");
+const uuid = require("uuid");
+const { authenticate, generateToken } = require("../Middleware/authMiddleware");
+const bcrypt = require("bcrypt");
+const {
+  User,
+  Car,
+  Chat,
+  UserAdditional,
+  Listing,
+  sequelize,
+  Booking,
+  Pricing,
+  CarAdditional,
+  Feedback,
+  Host,
+  Tax,
+  Wishlist,
+} = require("../Models");
+const {
+  sendOTP,
+  generateOTP,
+  razorpay,
+} = require("../Controller/userController");
+const {
+  initiatePayment,
+  checkPaymentStatus,
+} = require("../Controller/paymentController");
+const chatController = require("../Controller/chatController");
+const {
+  createSupportTicket,
+  addSupportMessage,
+  viewSupportChats,
+  viewUserSupportTickets,
+} = require("../Controller/supportController");
+const { gpsLocation } = require("../Controller/gpsLocation");
+const { Op } = require("sequelize");
+const crypto = require("crypto");
+const multer = require("multer");
+const axios = require("axios");
+const path = require("path");
 const router = express.Router();
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const userId = req.user.id; // Assuming req.user.id contains the user ID
-    const uploadPath = path.join(__dirname, '../uploads', userId.toString());
+    const uploadPath = path.join(__dirname, "../uploads", userId.toString());
     fs.mkdirSync(uploadPath, { recursive: true }); // Ensure directory exists
     cb(null, uploadPath);
   },
@@ -25,9 +52,9 @@ const storage = multer.diskStorage({
     // Use field name as file name
     let filename = file.fieldname + path.extname(file.originalname);
     cb(null, filename);
-  }
+  },
 });
-const fs = require('fs');
+const fs = require("fs");
 const GOOGLE_MAPS_API_KEY = `${process.env.GOOGLE_MAPS_API_KEY}`;
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const toRad = (value) => (value * Math.PI) / 180;
@@ -37,8 +64,10 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   const dLon = toRad(lon2 - lon1);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c; // Distance in km
@@ -48,7 +77,7 @@ const resizeImage = async (buffer) => {
   let resizedBuffer = buffer;
   try {
     resizedBuffer = await sharp(buffer)
-      .resize({ width: 1920, height: 1080, fit: 'inside' }) // Adjust the dimensions as needed
+      .resize({ width: 1920, height: 1080, fit: "inside" }) // Adjust the dimensions as needed
       .jpeg({ quality: 80 })
       .toBuffer();
 
@@ -59,33 +88,37 @@ const resizeImage = async (buffer) => {
         .toBuffer();
     }
   } catch (error) {
-    console.error('Error resizing image:', error);
+    console.error("Error resizing image:", error);
   }
   return resizedBuffer;
 };
 //Login
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
   const { phone } = req.body;
   const user = await User.findOne({ where: { phone } });
   if (!user) {
-    return res.status(404).json({ message: 'User not found' });
+    return res.status(404).json({ message: "User not found" });
   }
   // Generate OTP
   const otp = generateOTP();
   // Send OTP to the user's phone
   sendOTP(phone, otp);
-  await user.update({ otp: otp })
+  await user.update({ otp: otp });
   // Redirect to verify OTP route
-  return res.json({ message: 'OTP sent successfully', redirectTo: '/verify-otp', phone, otp });
+  return res.json({
+    message: "OTP sent successfully",
+    redirectTo: "/verify-otp",
+    phone,
+    otp,
+  });
 });
 
-
 //Verify-OTP
-router.post('/verify-otp', async (req, res) => {
+router.post("/verify-otp", async (req, res) => {
   const { phone, otp } = req.body;
-  const user = await User.findOne({ where: { phone } })
+  const user = await User.findOne({ where: { phone } });
   if (!user) {
-    return res.status(401).json({ message: 'Invalid OTP' });
+    return res.status(401).json({ message: "Invalid OTP" });
   }
   const fixed_otp = user.otp;
   if (fixed_otp === otp) {
@@ -93,38 +126,42 @@ router.post('/verify-otp', async (req, res) => {
     const token = generateToken(user);
     const id = user.id;
 
-    return res.json({ message: 'OTP verified successfully', id, token });
+    return res.json({ message: "OTP verified successfully", id, token });
   } else {
-    return res.status(401).json({ message: 'Invalid OTP' });
+    return res.status(401).json({ message: "Invalid OTP" });
   }
 });
 
 //Profile
 
-
-router.get('/profile', authenticate, async (req, res) => {
+router.get("/profile", authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findByPk(userId);
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     const additionalInfo = await UserAdditional.findByPk(userId);
 
     // Check if a folder exists for the user in the uploads directory
 
-    const userFolder = path.join('./uploads', String(userId));
+    const userFolder = path.join("./uploads", String(userId));
     if (fs.existsSync(userFolder)) {
       // List all files in the user's folder
       const files = fs.readdirSync(userFolder);
       if (files) {
-
         // Filter and create URLs for Aadhar and DL files
-        const aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
-        const dlFile = files.filter(file => file.includes('dlFile')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
-        const profilePic = files.filter(file => file.includes('profilePic')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
+        const aadharFile = files
+          .filter((file) => file.includes("aadharFile"))
+          .map((file) => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
+        const dlFile = files
+          .filter((file) => file.includes("dlFile"))
+          .map((file) => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
+        const profilePic = files
+          .filter((file) => file.includes("profilePic"))
+          .map((file) => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
         let profile = {
           id: additionalInfo.id,
           dlNumber: additionalInfo.Dlverification,
@@ -135,17 +172,16 @@ router.get('/profile', authenticate, async (req, res) => {
           verificationStatus: additionalInfo.verification_status,
           dl: dlFile,
           aadhar: aadharFile,
-          profilePic: profilePic
-        }
+          profilePic: profilePic,
+        };
         res.json({
           user: user,
           profile,
           aadharFile,
           dlFile,
-          profilePic
+          profilePic,
         });
-      }
-      else {
+      } else {
         let profile = {
           id: additionalInfo.id,
           dlNumber: additionalInfo.Dlverification,
@@ -154,19 +190,17 @@ router.get('/profile', authenticate, async (req, res) => {
           aadharNumber: additionalInfo.AadharVfid,
           address: additionalInfo.Address,
           verificationStatus: additionalInfo.verification_status,
-          dl: 'null',
-          aadhar: 'null',
-          profilePic: 'null'
-        }
+          dl: "null",
+          aadhar: "null",
+          profilePic: "null",
+        };
         res.json({
           phone: user.phone,
           role: user.role,
           profile,
-
         });
       }
-    }
-    else {
+    } else {
       let profile = {
         id: additionalInfo?.id || null,
         dlNumber: additionalInfo?.Dlverification || null,
@@ -175,9 +209,9 @@ router.get('/profile', authenticate, async (req, res) => {
         aadharNumber: additionalInfo?.AadharVfid || null,
         address: additionalInfo?.Address || null,
         verificationStatus: additionalInfo?.verification_status || null,
-        dl: 'null',
-        aadhar: 'null',
-        profilePic: 'null'
+        dl: "null",
+        aadhar: "null",
+        profilePic: "null",
       };
       res.json({
         phone: user?.phone || null,
@@ -185,102 +219,125 @@ router.get('/profile', authenticate, async (req, res) => {
         profile,
       });
     }
-
-
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-
 //Update Profile
 
-router.put('/profile', authenticate, async (req, res) => {
+router.put("/profile", authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findByPk(userId);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Update additional user information
-    const { dlNumber, fullName, aadharId, email, address, currentAddressVfId, mlData } = req.body;
-    await UserAdditional.update({
-      id: userId,
-      Dlverification: dlNumber,
-      FullName: fullName,
-      AadharVfid: aadharId,
-      Email: email,
-      Address: address,
-      CurrentAddressVfid: currentAddressVfId,
-      ml_data: mlData
-    }, { where: { id: userId } });
+    const {
+      dlNumber,
+      fullName,
+      aadharId,
+      email,
+      address,
+      currentAddressVfId,
+      mlData,
+    } = req.body;
+    await UserAdditional.update(
+      {
+        id: userId,
+        Dlverification: dlNumber,
+        FullName: fullName,
+        AadharVfid: aadharId,
+        Email: email,
+        Address: address,
+        CurrentAddressVfid: currentAddressVfId,
+        ml_data: mlData,
+      },
+      { where: { id: userId } }
+    );
 
-    res.status(200).json({ message: 'Profile Updated successfully' });
+    res.status(200).json({ message: "Profile Updated successfully" });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: 'Error updating profile', error: error });
+    res.status(500).json({ message: "Error updating profile", error: error });
   }
 });
 
 // Verify route with image resizing
-router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCount: 1 }, { name: 'dlFile', maxCount: 1 }, { name: 'profilePic', maxCount: 1 }]), async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+router.put(
+  "/verify",
+  authenticate,
+  upload.fields([
+    { name: "aadharFile", maxCount: 1 },
+    { name: "dlFile", maxCount: 1 },
+    { name: "profilePic", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await User.findByPk(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      let files = [];
+      if (req.files) {
+        if (req.files["aadharFile"]) files.push(req.files["aadharFile"][0]);
+        if (req.files["dlFile"]) files.push(req.files["dlFile"][0]);
+        if (req.files["profilePic"]) files.push(req.files["profilePic"][0]);
+      }
+
+      const uploadPath = path.join(__dirname, "../uploads", userId.toString());
+      fs.mkdirSync(uploadPath, { recursive: true });
+
+      for (let file of files) {
+        const resizedImageBuffer = await resizeImage(file.buffer);
+        const filename = file.fieldname + path.extname(file.originalname);
+        const filePath = path.join(uploadPath, filename);
+        fs.writeFileSync(filePath, resizedImageBuffer);
+        file.destination = uploadPath; // Update file destination to store in DB
+      }
+
+      const { dlFile, aadharFile, profilePic } = req.files;
+
+      if (dlFile || aadharFile) {
+        await UserAdditional.update(
+          {
+            dl: dlFile ? dlFile[0].destination : undefined,
+            aadhar: aadharFile ? aadharFile[0].destination : undefined,
+            verification_status: 1,
+          },
+          { where: { id: userId } }
+        );
+      }
+      if (profilePic) {
+        await UserAdditional.update(
+          {
+            profilepic: profilePic[0].destination,
+          },
+          { where: { id: userId } }
+        );
+      }
+
+      res.status(200).json({ message: "Profile Updated successfully" });
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: "Error updating profile", error: error });
     }
-
-    let files = [];
-    if (req.files) {
-      if (req.files['aadharFile']) files.push(req.files['aadharFile'][0]);
-      if (req.files['dlFile']) files.push(req.files['dlFile'][0]);
-      if (req.files['profilePic']) files.push(req.files['profilePic'][0]);
-    }
-
-    const uploadPath = path.join(__dirname, '../uploads', userId.toString());
-    fs.mkdirSync(uploadPath, { recursive: true });
-
-    for (let file of files) {
-      const resizedImageBuffer = await resizeImage(file.buffer);
-      const filename = file.fieldname + path.extname(file.originalname);
-      const filePath = path.join(uploadPath, filename);
-      fs.writeFileSync(filePath, resizedImageBuffer);
-      file.destination = uploadPath; // Update file destination to store in DB
-    }
-
-    const { dlFile, aadharFile, profilePic } = req.files;
-
-    if (dlFile || aadharFile) {
-      await UserAdditional.update({
-        dl: dlFile ? dlFile[0].destination : undefined,
-        aadhar: aadharFile ? aadharFile[0].destination : undefined,
-        verification_status: 1
-      }, { where: { id: userId } });
-    }
-    if (profilePic) {
-      await UserAdditional.update({
-        profilepic: profilePic[0].destination,
-      }, { where: { id: userId } });
-    }
-
-    res.status(200).json({ message: 'Profile Updated successfully' });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: 'Error updating profile', error: error });
   }
-});
+);
 
 //Signup
-router.post('/signup', async (req, res) => {
+router.post("/signup", async (req, res) => {
   const { phone, password, role } = req.body;
 
   try {
     // Check if the provided role is valid
-    if (!['user', 'host', 'admin'].includes(role)) {
-      return res.status(400).json({ message: 'Invalid role' });
+    if (!["user", "host", "admin"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
     }
 
     // Hash the password
@@ -290,38 +347,55 @@ router.post('/signup', async (req, res) => {
     const userId = uuid.v4();
     let user;
     // Create user based on the role
-    if (role === 'user') {
-      user = await User.create({ id: userId, phone, password: hashedPassword, role: 'user' });
-    } else if (role === 'host') {
-      user = await Host.create({ id: userId, phone, password: hashedPassword, role: 'host' });
-    } else if (role === 'admin') {
-      user = await Admin.create({ id: userId, phone, password: hashedPassword, role: 'admin' });
+    if (role === "user") {
+      user = await User.create({
+        id: userId,
+        phone,
+        password: hashedPassword,
+        role: "user",
+      });
+    } else if (role === "host") {
+      user = await Host.create({
+        id: userId,
+        phone,
+        password: hashedPassword,
+        role: "host",
+      });
+    } else if (role === "admin") {
+      user = await Admin.create({
+        id: userId,
+        phone,
+        password: hashedPassword,
+        role: "admin",
+      });
     }
     let response = {
       id: user.id,
       phone: user.phone,
       role: user.role,
-    }
+    };
 
     UserAdditional.create({ id: user.id });
     // Respond with success message
-    res.status(201).json({ message: 'User created', response });
+    res.status(201).json({ message: "User created", response });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error creating user' });
+    res.status(500).json({ message: "Error creating user" });
   }
 });
 
-
 //Get All Cars
-router.get('/cars', async (req, res) => {
+router.get("/cars", async (req, res) => {
   const cars = await Car.findAll();
   const pricingPromises = cars.map(async (car) => {
-    const carFolder = path.join('./uploads/host/CarAdditional', car.carid);
+    const carFolder = path.join("./uploads/host/CarAdditional", car.carid);
     let availableCar;
     if (fs.existsSync(carFolder)) {
       const files = fs.readdirSync(carFolder);
-      let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${car.carid}/${file}`);
+      let carImages = files.map(
+        (file) =>
+          `${process.env.BASE_URL}/uploads/host/CarAdditional/${car.carid}/${file}`
+      );
 
       availableCar = {
         carId: car.carid,
@@ -341,11 +415,9 @@ router.get('/cars', async (req, res) => {
         carImage2: carImages[1] ? carImages[1] : null,
         carImage3: carImages[2] ? carImages[2] : null,
         carImage4: carImages[3] ? carImages[3] : null,
-        carImage5: carImages[4] ? carImages[4] : null
-
-      }
-    }
-    else {
+        carImage5: carImages[4] ? carImages[4] : null,
+      };
+    } else {
       availableCar = {
         carId: car.carid,
         carModel: car.carmodel,
@@ -364,9 +436,8 @@ router.get('/cars', async (req, res) => {
         carImage2: null,
         carImage3: null,
         carImage4: null,
-        carImage5: null
-
-      }
+        carImage5: null,
+      };
     }
     const cph = await Pricing.findOne({ where: { carid: car.carid } });
     if (cph) {
@@ -380,14 +451,17 @@ router.get('/cars', async (req, res) => {
 
   // Wait for all pricing calculations to complete
   const carsWithPricing = await Promise.all(pricingPromises);
-  res.status(200).json({ "message": "All available cars", cars: carsWithPricing })
-})
+  res
+    .status(200)
+    .json({ message: "All available cars", cars: carsWithPricing });
+});
 //chat
-router.post('/chat/send', chatController.sendMessage);
-router.get('/chat/:bookingId', chatController.getMessagesByBookingId);
+router.post("/chat/send", chatController.sendMessage);
+router.get("/chat/:bookingId", chatController.getMessagesByBookingId);
 //Find Cars
-router.post('/findcars', authenticate, async (req, res) => {
-  const { startDate, endDate, startTime, endTime, latitude, longitude } = req.body;
+router.post("/findcars", authenticate, async (req, res) => {
+  const { startDate, endDate, startTime, endTime, latitude, longitude } =
+    req.body;
   try {
     const availableListings = await Listing.findAll({
       where: {
@@ -419,7 +493,6 @@ router.post('/findcars', authenticate, async (req, res) => {
                         ],
                       },
                       {
-
                         [Op.or]: [
                           { pausetime_start_time: { [Op.gte]: endTime } },
                           { pausetime_start_time: null },
@@ -474,7 +547,6 @@ router.post('/findcars', authenticate, async (req, res) => {
                         ],
                       },
                       {
-
                         [Op.or]: [
                           { start_time: { [Op.lte]: startTime } },
                           { start_time: null },
@@ -485,10 +557,7 @@ router.post('/findcars', authenticate, async (req, res) => {
                   {
                     [Op.and]: [
                       {
-                        [Op.or]: [
-                          { end_date: endDate },
-                          { end_date: null },
-                        ],
+                        [Op.or]: [{ end_date: endDate }, { end_date: null }],
                       },
                       {
                         [Op.or]: [
@@ -521,22 +590,22 @@ router.post('/findcars', authenticate, async (req, res) => {
         where: {
           carid: carId,
           status: {
-            [Op.in]: [1, 2, 5]  // Assuming 1 and 2 are statuses for active bookings
+            [Op.in]: [1, 2, 5], // Assuming 1 and 2 are statuses for active bookings
           },
           [Op.or]: [
             // Case 1: The existing booking starts during the requested period
             {
               [Op.and]: [
                 { startTripDate: { [Op.eq]: startDate } },
-                { startTripTime: { [Op.between]: [startTime, endTime] } }
-              ]
+                { startTripTime: { [Op.between]: [startTime, endTime] } },
+              ],
             },
             // Case 2: The existing booking ends during the requested period
             {
               [Op.and]: [
                 { endTripDate: { [Op.eq]: endDate } },
-                { endTripTime: { [Op.between]: [startTime, endTime] } }
-              ]
+                { endTripTime: { [Op.between]: [startTime, endTime] } },
+              ],
             },
             // Case 3: The existing booking starts before the requested period and ends after it starts
             {
@@ -548,18 +617,18 @@ router.post('/findcars', authenticate, async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: startDate } },
-                        { startTripTime: { [Op.lte]: startTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: startTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: startDate } },
-                        { endTripTime: { [Op.gte]: startTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
+                        { endTripTime: { [Op.gte]: startTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
             // Case 4: The requested period starts during an existing booking
             {
@@ -571,18 +640,18 @@ router.post('/findcars', authenticate, async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: endDate } },
-                        { startTripTime: { [Op.lte]: endTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: endTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: startDate } },
-                        { endTripTime: { [Op.gte]: startTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
+                        { endTripTime: { [Op.gte]: startTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
             // Case 5: The existing booking completely overlaps the requested period
             {
@@ -594,34 +663,39 @@ router.post('/findcars', authenticate, async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: startDate } },
-                        { startTripTime: { [Op.lte]: startTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: startTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: endDate } },
-                        { endTripTime: { [Op.gte]: endTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
+                        { endTripTime: { [Op.gte]: endTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       });
       if (check_booking) {
         return null;
       }
-      const carAdditional = await CarAdditional.findOne({ where: { carid: carId } });
+      const carAdditional = await CarAdditional.findOne({
+        where: { carid: carId },
+      });
 
       // Fetch the Pricing data for the Car
       const cph = await Pricing.findOne({ where: { carid: carId } });
       let availableCar;
-      const carFolder = path.join('./uploads/host/CarAdditional', carId);
+      const carFolder = path.join("./uploads/host/CarAdditional", carId);
       if (fs.existsSync(carFolder)) {
         const files = fs.readdirSync(carFolder);
-        let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`);
+        let carImages = files.map(
+          (file) =>
+            `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`
+        );
         availableCar = {
           carId: car.carid,
           carModel: car.carmodel,
@@ -654,10 +728,9 @@ router.post('/findcars', authenticate, async (req, res) => {
           carImage2: carImages[1] ? carImages[1] : null,
           carImage3: carImages[2] ? carImages[2] : null,
           carImage4: carImages[3] ? carImages[3] : null,
-          carImage5: carImages[4] ? carImages[4] : null
-        }
-      }
-      else {
+          carImage5: carImages[4] ? carImages[4] : null,
+        };
+      } else {
         availableCar = {
           carId: car.carid,
           carModel: car.carmodel,
@@ -703,24 +776,39 @@ router.post('/findcars', authenticate, async (req, res) => {
           carImage2: null,
           carImage3: null,
           carImage4: null,
-          carImage5: null
-        }
+          carImage5: null,
+        };
       }
       if (cph) {
-        const hours = calculateTripHours(startDate, endDate, startTime, endTime);
+        const hours = calculateTripHours(
+          startDate,
+          endDate,
+          startTime,
+          endTime
+        );
         const amount = Math.round(cph.costperhr * hours);
         const costperhr = Math.round(cph.costperhr);
         // Combine the Car data with the pricing information
-        return { ...availableCar, pricing: { costPerHr: costperhr, hours: hours, amount: amount } };
+        return {
+          ...availableCar,
+          pricing: { costPerHr: costperhr, hours: hours, amount: amount },
+        };
       } else {
         // Handle the case where Pricing data is not available
         return { ...availableCar, pricing: null };
       }
     });
-    const carsWithPricing = (await Promise.all(pricingPromises)).filter(car => car !== null);
+    const carsWithPricing = (await Promise.all(pricingPromises)).filter(
+      (car) => car !== null
+    );
     if (latitude && longitude) {
-      carsWithPricing.forEach(car => {
-        car.distance = haversineDistance(latitude, longitude, car.latitude, car.longitude);
+      carsWithPricing.forEach((car) => {
+        car.distance = haversineDistance(
+          latitude,
+          longitude,
+          car.latitude,
+          car.longitude
+        );
       });
 
       carsWithPricing.sort((a, b) => a.distance - b.distance);
@@ -728,12 +816,11 @@ router.post('/findcars', authenticate, async (req, res) => {
     res.status(200).json({ availableCars: carsWithPricing });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error finding available cars' });
+    res.status(500).json({ message: "Error finding available cars" });
   }
 });
 
-
-router.post('/onecar', async (req, res) => {
+router.post("/onecar", async (req, res) => {
   const { carId, startDate, endDate, startTime, endTime } = req.body;
   try {
     const availableListings = await Listing.findOne({
@@ -766,7 +853,6 @@ router.post('/onecar', async (req, res) => {
                         ],
                       },
                       {
-
                         [Op.or]: [
                           { pausetime_start_time: { [Op.gte]: endTime } },
                           { pausetime_start_time: null },
@@ -821,7 +907,6 @@ router.post('/onecar', async (req, res) => {
                         ],
                       },
                       {
-
                         [Op.or]: [
                           { start_time: { [Op.lte]: startTime } },
                           { start_time: null },
@@ -832,10 +917,7 @@ router.post('/onecar', async (req, res) => {
                   {
                     [Op.and]: [
                       {
-                        [Op.or]: [
-                          { end_date: endDate },
-                          { end_date: null },
-                        ],
+                        [Op.or]: [{ end_date: endDate }, { end_date: null }],
                       },
                       {
                         [Op.or]: [
@@ -860,28 +942,28 @@ router.post('/onecar', async (req, res) => {
       const availableCars = await Car.findOne({
         where: {
           carid: availableListings.carid,
-        }
+        },
       });
       const check_booking = await Booking.findOne({
         where: {
           carid: carId,
           status: {
-            [Op.in]: [1, 2, 5]  // Assuming 1 and 2 are statuses for active bookings
+            [Op.in]: [1, 2, 5], // Assuming 1 and 2 are statuses for active bookings
           },
           [Op.or]: [
             // Case 1: The existing booking starts during the requested period
             {
               [Op.and]: [
                 { startTripDate: { [Op.eq]: startDate } },
-                { startTripTime: { [Op.between]: [startTime, endTime] } }
-              ]
+                { startTripTime: { [Op.between]: [startTime, endTime] } },
+              ],
             },
             // Case 2: The existing booking ends during the requested period
             {
               [Op.and]: [
                 { endTripDate: { [Op.eq]: endDate } },
-                { endTripTime: { [Op.between]: [startTime, endTime] } }
-              ]
+                { endTripTime: { [Op.between]: [startTime, endTime] } },
+              ],
             },
             // Case 3: The existing booking starts before the requested period and ends after it starts
             {
@@ -893,18 +975,18 @@ router.post('/onecar', async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: startDate } },
-                        { startTripTime: { [Op.lte]: startTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: startTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: startDate } },
-                        { endTripTime: { [Op.gte]: startTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
+                        { endTripTime: { [Op.gte]: startTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
             // Case 4: The requested period starts during an existing booking
             {
@@ -916,18 +998,18 @@ router.post('/onecar', async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: endDate } },
-                        { startTripTime: { [Op.lte]: endTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: endTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: startDate } },
-                        { endTripTime: { [Op.gte]: startTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
+                        { endTripTime: { [Op.gte]: startTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
             // Case 5: The existing booking completely overlaps the requested period
             {
@@ -939,27 +1021,31 @@ router.post('/onecar', async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: startDate } },
-                        { startTripTime: { [Op.lte]: startTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: startTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: endDate } },
-                        { endTripTime: { [Op.gte]: endTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
+                        { endTripTime: { [Op.gte]: endTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       });
       if (check_booking) {
-        return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
+        return res.status(400).json({
+          message: "Selected car is not available for the specified dates",
+        });
       }
       // Calculate pricing for each available car
-      const cph = await Pricing.findOne({ where: { carid: availableCars.carid } });
+      const cph = await Pricing.findOne({
+        where: { carid: availableCars.carid },
+      });
       let cars = {
         carId: availableCars.carid,
         carModel: availableCars.carmodel,
@@ -973,28 +1059,39 @@ router.post('/onecar', async (req, res) => {
         hostId: availableCars.hostId,
         rating: availableCars.rating,
         mileage: availableCars.mileage,
-      }
+      };
       if (cph) {
-        const hours = calculateTripHours(startDate, endDate, startTime, endTime);
+        const hours = calculateTripHours(
+          startDate,
+          endDate,
+          startTime,
+          endTime
+        );
         const amount = Math.round(cph.costperhr * hours);
         const costperhr = cph.costperhr;
         // Include pricing information in the car object
-        res.status(200).json({ cars, pricing: { costPerHr: costperhr, hours: hours, amount: amount } });
+        res.status(200).json({
+          cars,
+          pricing: { costPerHr: costperhr, hours: hours, amount: amount },
+        });
       } else {
         res.status(200).json({ cars, pricing: null });
       }
+    } else {
+      res.status(400).json({ message: "Car is not available" });
     }
-    else {
-      res.status(400).json({ message: 'Car is not available' });
-    }
-
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error finding available cars' });
+    res.status(500).json({ message: "Error finding available cars" });
   }
 });
 
-function calculateTripHours(startTripDate, endTripDate, startTripTime, endTripTime) {
+function calculateTripHours(
+  startTripDate,
+  endTripDate,
+  startTripTime,
+  endTripTime
+) {
   // Combine date and time into a single string for both start and end
   const startDateTimeStr = `${startTripDate} ${startTripTime}`;
   const endDateTimeStr = `${endTripDate} ${endTripTime}`;
@@ -1011,14 +1108,14 @@ function calculateTripHours(startTripDate, endTripDate, startTripTime, endTripTi
 }
 
 //Booking
-router.post('/booking', authenticate, async (req, res) => {
+router.post("/booking", authenticate, async (req, res) => {
   try {
     const { carId, startDate, endDate, startTime, endTime } = req.body;
     const userId = req.user.userid;
     const userAdd = await UserAdditional.findOne({
       where: {
         id: userId,
-      }
+      },
     });
     // if (userAdd.verification_status != 2) {
     //   return res.status(400).json({ message: 'Your DL and Aadhar is not Approved' });
@@ -1054,7 +1151,6 @@ router.post('/booking', authenticate, async (req, res) => {
                         ],
                       },
                       {
-
                         [Op.or]: [
                           { pausetime_start_time: { [Op.gte]: endTime } },
                           { pausetime_start_time: null },
@@ -1109,7 +1205,6 @@ router.post('/booking', authenticate, async (req, res) => {
                         ],
                       },
                       {
-
                         [Op.or]: [
                           { start_time: { [Op.lte]: startTime } },
                           { start_time: null },
@@ -1120,10 +1215,7 @@ router.post('/booking', authenticate, async (req, res) => {
                   {
                     [Op.and]: [
                       {
-                        [Op.or]: [
-                          { end_date: endDate },
-                          { end_date: null },
-                        ],
+                        [Op.or]: [{ end_date: endDate }, { end_date: null }],
                       },
                       {
                         [Op.or]: [
@@ -1145,22 +1237,22 @@ router.post('/booking', authenticate, async (req, res) => {
         where: {
           carid: carId,
           status: {
-            [Op.in]: [1, 2, 5]  // Assuming 1 and 2 are statuses for active bookings
+            [Op.in]: [1, 2, 5], // Assuming 1 and 2 are statuses for active bookings
           },
           [Op.or]: [
             // Case 1: The existing booking starts during the requested period
             {
               [Op.and]: [
                 { startTripDate: { [Op.eq]: startDate } },
-                { startTripTime: { [Op.between]: [startTime, endTime] } }
-              ]
+                { startTripTime: { [Op.between]: [startTime, endTime] } },
+              ],
             },
             // Case 2: The existing booking ends during the requested period
             {
               [Op.and]: [
                 { endTripDate: { [Op.eq]: endDate } },
-                { endTripTime: { [Op.between]: [startTime, endTime] } }
-              ]
+                { endTripTime: { [Op.between]: [startTime, endTime] } },
+              ],
             },
             // Case 3: The existing booking starts before the requested period and ends after it starts
             {
@@ -1172,18 +1264,18 @@ router.post('/booking', authenticate, async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: startDate } },
-                        { startTripTime: { [Op.lte]: startTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: startTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: startDate } },
-                        { endTripTime: { [Op.gte]: startTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
+                        { endTripTime: { [Op.gte]: startTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
             // Case 4: The requested period starts during an existing booking
             {
@@ -1195,18 +1287,18 @@ router.post('/booking', authenticate, async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: endDate } },
-                        { startTripTime: { [Op.lte]: endTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: endTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: startDate } },
-                        { endTripTime: { [Op.gte]: startTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
+                        { endTripTime: { [Op.gte]: startTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
             // Case 5: The existing booking completely overlaps the requested period
             {
@@ -1218,47 +1310,51 @@ router.post('/booking', authenticate, async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: startDate } },
-                        { startTripTime: { [Op.lte]: startTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: startTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: endDate } },
-                        { endTripTime: { [Op.gte]: endTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
+                        { endTripTime: { [Op.gte]: endTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       });
       if (check_booking) {
-        return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
+        return res.status(400).json({
+          message: "Selected car is not available for the specified dates",
+        });
       }
-    }
-    else {
-      return res.status(400).json({ message: 'Selected car is not available for the specified dates' });
+    } else {
+      return res.status(400).json({
+        message: "Selected car is not available for the specified dates",
+      });
     }
     try {
-      let cph = await Pricing.findOne({ where: { carid: carId } })
+      let cph = await Pricing.findOne({ where: { carid: carId } });
       let hours = calculateTripHours(startDate, endDate, startTime, endTime);
       let amount = Math.round(cph.costperhr * hours);
       const tax = await Tax.findOne({ where: { id: 1 } }); // Adjust the condition as necessary
       if (!tax) {
-        return res.status(404).json({ message: 'Tax data not found' });
+        return res.status(404).json({ message: "Tax data not found" });
       }
       let spinTripGST = amount * (tax.GST / 100) * (tax.Commission / 100);
-      let hostGst = ( amount - ( amount * tax.Commission / 100 ) ) * (tax.HostGST / 100);
+      let hostGst =
+        (amount - (amount * tax.Commission) / 100) * (tax.HostGST / 100);
       const tdsRate = tax.TDS / 100;
-      const HostCommision = 1 - ( tax.Commission / 100 );
+      const HostCommision = 1 - tax.Commission / 100;
 
       // Update booking amounts using dynamic tax rates
       let gstAmount = spinTripGST + hostGst;
       let totalUserAmount = amount + gstAmount;
-      let tds = (amount * HostCommision) * tdsRate;
-      let totalHostAmount = ( amount * HostCommision) - tds;
+      let tds = amount * HostCommision * tdsRate;
+      let totalHostAmount = amount * HostCommision - tds;
       const bookingid = uuid.v4();
       let booking = await Booking.create({
         Bookingid: bookingid,
@@ -1289,23 +1385,23 @@ router.post('/booking', authenticate, async (req, res) => {
         endTripTime: booking.endTripTime,
         gstAmount: booking.GSTAmount,
         totalUserAmount: booking.totalUserAmount,
-      }
+      };
       req.body.bookingId = booking.Bookingid;
       req.body.userId = userId;
       req.body.amount = amount;
       //const paymentUrl = await initiatePayment(req);
       //res.status(201).json({ message: 'Booking successful', booking, paymentUrl });
-      res.status(201).json({ message: 'Booking successful', bookings });
+      res.status(201).json({ message: "Booking successful", bookings });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: 'Error processing booking' });
+      res.status(500).json({ message: "Error processing booking" });
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 });
-router.post('/wishlist', authenticate, async (req, res) => {
+router.post("/wishlist", authenticate, async (req, res) => {
   try {
     const { carId } = req.body;
     const userId = req.user.userid;
@@ -1313,91 +1409,97 @@ router.post('/wishlist', authenticate, async (req, res) => {
     const car = await Car.findOne({
       where: {
         carid: carId,
-      }
+      },
     });
     if (!car) {
-      res.status(404).json({message: 'Car not found'});
+      res.status(404).json({ message: "Car not found" });
     }
     const wishlist = await Wishlist.findOne({
       where: {
         userid: userId,
         carid: carId,
-      }
+      },
     });
     if (wishlist) {
-      res.status(200).json({message: 'Wishlist Already added'});
-    }
-    else{
-    await Wishlist.create({
-      userid: userId,
-      carid: carId,
-    })
-    res.status(201).json({message: 'Wishlist Added successfully'});
+      res.status(200).json({ message: "Wishlist Already added" });
+    } else {
+      await Wishlist.create({
+        userid: userId,
+        carid: carId,
+      });
+      res.status(201).json({ message: "Wishlist Added successfully" });
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 });
-router.post('/cancelwishlist', authenticate, async (req, res) => {
+router.post("/cancelwishlist", authenticate, async (req, res) => {
   try {
     const { carId } = req.body;
     const userId = req.user.userid;
     const car = await Car.findOne({
       where: {
         carid: carId,
-      }
+      },
     });
     if (!car) {
-      return res.status(404).json({message: 'Car not found'});
+      return res.status(404).json({ message: "Car not found" });
     }
     const wishlist = await Wishlist.findOne({
       where: {
         userid: userId,
         carid: carId,
-      }
+      },
     });
     if (!wishlist) {
-      res.status(404).json({message: 'Wishlist not present'});
-    }
-    else{
+      res.status(404).json({ message: "Wishlist not present" });
+    } else {
       await Wishlist.destroy({
         where: {
           userid: userId,
           carid: carId,
-        }
+        },
       });
-    res.status(200).json({message: 'Wishlist removed successfully'});
+      res.status(200).json({ message: "Wishlist removed successfully" });
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 });
-router.get('/wishlist', authenticate, async (req, res) => {
+router.get("/wishlist", authenticate, async (req, res) => {
   try {
     const userId = req.user.userid;
-    const wishlist = await Wishlist.findAll({ where: { userid: userId } })
-    if(!wishlist){
-      res.status(200).json({message: 'wishlist bucket is empty' });
+    const wishlist = await Wishlist.findAll({ where: { userid: userId } });
+    if (!wishlist) {
+      res.status(200).json({ message: "wishlist bucket is empty" });
     }
     console.log(wishlist);
     const userWishlist = wishlist.map(async (wishlists) => {
-      const carFolder = path.join('./uploads/host/CarAdditional', wishlists.carid);
+      const carFolder = path.join(
+        "./uploads/host/CarAdditional",
+        wishlists.carid
+      );
       const car = await Car.findOne({
         where: {
           carid: wishlists.carid,
-        }
+        },
       });
       if (!car) {
         return;
       }
       console.log(car);
-      const carAdditional = await CarAdditional.findOne({ where: { carid: wishlists.carid } });
+      const carAdditional = await CarAdditional.findOne({
+        where: { carid: wishlists.carid },
+      });
       let wl;
       if (fs.existsSync(carFolder)) {
         const files = fs.readdirSync(carFolder);
-        let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${wishlists.carid}/${file}`);
+        let carImages = files.map(
+          (file) =>
+            `${process.env.BASE_URL}/uploads/host/CarAdditional/${wishlists.carid}/${file}`
+        );
         wl = {
           carId: wishlists.carid,
           carModel: car.carmodel,
@@ -1419,9 +1521,8 @@ router.get('/wishlist', authenticate, async (req, res) => {
           carImage3: carImages[2] ? carImages[2] : null,
           carImage4: carImages[3] ? carImages[3] : null,
           carImage5: carImages[4] ? carImages[4] : null,
-        }
-      }
-      else {
+        };
+      } else {
         wl = {
           carId: wishlists.carid,
           carModel: car.carmodel,
@@ -1434,7 +1535,7 @@ router.get('/wishlist', authenticate, async (req, res) => {
           registrationYear: car.Registrationyear,
           rcNumber: car.Rcnumber,
           bodyType: car.bodytype,
-           rating: car.rating,
+          rating: car.rating,
           hostId: car.hostId,
           horsePower: carAdditional.HorsePower,
           latitude: carAdditional.latitude,
@@ -1444,38 +1545,44 @@ router.get('/wishlist', authenticate, async (req, res) => {
           carImage3: null,
           carImage4: null,
           carImage5: null,
-        }
+        };
       }
       const cph = await Pricing.findOne({ where: { carid: car.carid } });
-       if (cph) {
-      const costperhr = cph.costperhr;
-      // Include pricing information in the car object
-      return { ...wl, costPerHr: costperhr };
-       } else {
-       return { ...wl, costPerHr: null };
-       }
+      if (cph) {
+        const costperhr = cph.costperhr;
+        // Include pricing information in the car object
+        return { ...wl, costPerHr: costperhr };
+      } else {
+        return { ...wl, costPerHr: null };
+      }
       return { ...wl };
     });
     const userWishlists = await Promise.all(userWishlist);
-    res.status(201).json({message: userWishlists});
+    res.status(201).json({ message: userWishlists });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 });
-router.post('/getCarAdditional', async (req, res) => {
+router.post("/getCarAdditional", async (req, res) => {
   const { carId } = req.body;
 
   try {
     // Check if the host owns the car
     const car = await Car.findOne({ where: { carid: carId } });
     if (!car) {
-      return res.status(404).json({ message: 'Car not found or unauthorized access' });
+      return res
+        .status(404)
+        .json({ message: "Car not found or unauthorized access" });
     }
 
-    const carAdditional = await CarAdditional.findOne({ where: { carid: carId } });
+    const carAdditional = await CarAdditional.findOne({
+      where: { carid: carId },
+    });
     if (!carAdditional) {
-      return res.status(404).json({ message: 'Car additional information not found' });
+      return res
+        .status(404)
+        .json({ message: "Car additional information not found" });
     }
     let carAdditionals = {
       carId: carAdditional.carid,
@@ -1511,33 +1618,36 @@ router.post('/getCarAdditional', async (req, res) => {
       verificationStatus: carAdditional.verification_status,
       latitude: carAdditional.latitude,
       longitude: carAdditional.longitude,
-    }
+    };
     // Path to the car's folder in the uploads directory
-    const carFolder = path.join('./uploads/host/CarAdditional', carId);
+    const carFolder = path.join("./uploads/host/CarAdditional", carId);
     if (fs.existsSync(carFolder)) {
       // List all files in the car's folder
       const files = fs.readdirSync(carFolder);
-      const carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`);
+      const carImages = files.map(
+        (file) =>
+          `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`
+      );
 
       res.status(200).json({
         message: "Car Additional data",
         carAdditionals,
-        carImages // Including the array of car image URLs
+        carImages, // Including the array of car image URLs
       });
     } else {
       // If no images found, return only the car additional data
       res.status(200).json({
         message: "Car Additional data, no images found",
-        carAdditionals
+        carAdditionals,
       });
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-router.post('/extend-booking', authenticate, async (req, res) => {
+router.post("/extend-booking", authenticate, async (req, res) => {
   try {
     const { bookingId, newEndDate, newEndTime } = req.body;
     const userId = req.user.userid;
@@ -1547,20 +1657,28 @@ router.post('/extend-booking', authenticate, async (req, res) => {
       where: {
         Bookingid: bookingId,
         id: userId,
-        status: 2
-      }
+        status: 2,
+      },
     });
 
     if (!booking) {
-      return res.status(404).json({ message: 'Booking not found or not active' });
+      return res
+        .status(404)
+        .json({ message: "Booking not found or not active" });
     }
 
     // Check if the booking can be extended
     const currentEndDate = booking.endTripDate;
     const currentEndTime = booking.endTripTime;
 
-    if (newEndDate < currentEndDate || (newEndDate === currentEndDate && newEndTime <= currentEndTime)) {
-      return res.status(400).json({ message: 'New end date and time must be after the current end date and time' });
+    if (
+      newEndDate < currentEndDate ||
+      (newEndDate === currentEndDate && newEndTime <= currentEndTime)
+    ) {
+      return res.status(400).json({
+        message:
+          "New end date and time must be after the current end date and time",
+      });
     }
 
     const listing = await Listing.findOne({
@@ -1594,7 +1712,6 @@ router.post('/extend-booking', authenticate, async (req, res) => {
                         ],
                       },
                       {
-
                         [Op.or]: [
                           { pausetime_start_time: { [Op.gte]: newEndTime } },
                           { pausetime_start_time: null },
@@ -1612,7 +1729,11 @@ router.post('/extend-booking', authenticate, async (req, res) => {
                       },
                       {
                         [Op.or]: [
-                          { pausetime_end_time: { [Op.lte]: booking.startTripTime } },
+                          {
+                            pausetime_end_time: {
+                              [Op.lte]: booking.startTripTime,
+                            },
+                          },
                           { pausetime_end_time: null },
                         ],
                       },
@@ -1649,7 +1770,6 @@ router.post('/extend-booking', authenticate, async (req, res) => {
                         ],
                       },
                       {
-
                         [Op.or]: [
                           { start_time: { [Op.lte]: booking.startTripTime } },
                           { start_time: null },
@@ -1660,10 +1780,7 @@ router.post('/extend-booking', authenticate, async (req, res) => {
                   {
                     [Op.and]: [
                       {
-                        [Op.or]: [
-                          { end_date: newEndDate },
-                          { end_date: null },
-                        ],
+                        [Op.or]: [{ end_date: newEndDate }, { end_date: null }],
                       },
                       {
                         [Op.or]: [
@@ -1686,22 +1803,30 @@ router.post('/extend-booking', authenticate, async (req, res) => {
           carid: booking.carid,
           Bookingid: { [Op.ne]: booking.Bookingid },
           status: {
-            [Op.in]: [5, 1]  // Assuming 1 and 2 are statuses for active bookings
+            [Op.in]: [5, 1], // Assuming 1 and 2 are statuses for active bookings
           },
           [Op.or]: [
             // Case 1: The existing booking starts during the requested period
             {
               [Op.and]: [
                 { startTripDate: { [Op.eq]: booking.startTripDate } },
-                { startTripTime: { [Op.between]: [booking.startTripTime, newEndTime] } }
-              ]
+                {
+                  startTripTime: {
+                    [Op.between]: [booking.startTripTime, newEndTime],
+                  },
+                },
+              ],
             },
             // Case 2: The existing booking ends during the requested period
             {
               [Op.and]: [
                 { endTripDate: { [Op.eq]: newEndDate } },
-                { endTripTime: { [Op.between]: [booking.startTripTime, newEndTime] } }
-              ]
+                {
+                  endTripTime: {
+                    [Op.between]: [booking.startTripTime, newEndTime],
+                  },
+                },
+              ],
             },
             // Case 3: The existing booking starts before the requested period and ends after it starts
             {
@@ -1713,18 +1838,18 @@ router.post('/extend-booking', authenticate, async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: booking.startTripDate } },
-                        { startTripTime: { [Op.lte]: booking.startTripTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: booking.startTripTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: booking.startTripDate } },
-                        { endTripTime: { [Op.gte]: booking.startTripTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
+                        { endTripTime: { [Op.gte]: booking.startTripTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
             // Case 4: The requested period starts during an existing booking
             {
@@ -1736,18 +1861,18 @@ router.post('/extend-booking', authenticate, async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: newEndDate } },
-                        { startTripTime: { [Op.lte]: newEndTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: newEndTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: booking.startTripDate } },
-                        { endTripTime: { [Op.gte]: booking.startTripTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
+                        { endTripTime: { [Op.gte]: booking.startTripTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
             // Case 5: The existing booking completely overlaps the requested period
             {
@@ -1759,38 +1884,44 @@ router.post('/extend-booking', authenticate, async (req, res) => {
                     {
                       [Op.and]: [
                         { startTripDate: { [Op.eq]: booking.startTripDate } },
-                        { startTripTime: { [Op.lte]: booking.startTripTime } }
-                      ]
+                        { startTripTime: { [Op.lte]: booking.startTripTime } },
+                      ],
                     },
                     {
                       [Op.and]: [
                         { endTripDate: { [Op.eq]: newEndDate } },
-                        { endTripTime: { [Op.gte]: newEndTime } }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
+                        { endTripTime: { [Op.gte]: newEndTime } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       });
       if (check_booking) {
-        return res.status(400).json({ message: 'Selected car is not available for extension' });
+        return res
+          .status(400)
+          .json({ message: "Selected car is not available for extension" });
       }
-    }
-    else {
-      return res.status(400).json({ message: 'Car is not available' })
+    } else {
+      return res.status(400).json({ message: "Car is not available" });
     }
     // Calculate additional hours
-    const additionalHours = calculateTripHours(currentEndDate, newEndDate, currentEndTime, newEndTime);
+    const additionalHours = calculateTripHours(
+      currentEndDate,
+      newEndDate,
+      currentEndTime,
+      newEndTime
+    );
 
     // Retrieve pricing information for the car
     const cph = await Pricing.findOne({ where: { carid: booking.carid } });
 
     // Calculate the additional amount
     if (!cph) {
-      return res.status(400).json({ message: 'Car pricing is not available' });
+      return res.status(400).json({ message: "Car pricing is not available" });
     }
 
     const additionalAmount = Math.round(cph.costperhr * additionalHours);
@@ -1801,24 +1932,35 @@ router.post('/extend-booking', authenticate, async (req, res) => {
     booking.amount += additionalAmount; // Assuming amount field exists in the Booking model
     const tax = await Tax.findOne({ where: { id: 1 } }); // Adjust the condition as necessary
     if (!tax) {
-      return res.status(404).json({ message: 'Tax data not found' });
+      return res.status(404).json({ message: "Tax data not found" });
     }
-    let spinTripGST = additionalAmount * (tax.GST / 100) * (tax.Commission / 100);
-    let hostGst = ( additionalAmount - ( additionalAmount * tax.Commission / 100 ) ) * (tax.HostGST / 100);
+    let spinTripGST =
+      additionalAmount * (tax.GST / 100) * (tax.Commission / 100);
+    let hostGst =
+      (additionalAmount - (additionalAmount * tax.Commission) / 100) *
+      (tax.HostGST / 100);
     let gstAmount = spinTripGST + hostGst;
     const tdsRate = tax.TDS / 100;
-    const hostCommission = 1 - (tax.Commission / 100);
+    const hostCommission = 1 - tax.Commission / 100;
     // Update booking amounts using dynamic tax rates
     booking.GSTAmount += gstAmount;
     booking.totalUserAmount += additionalAmount + gstAmount;
-    booking.tds += (additionalAmount * tdsRate);
-    booking.totalHostAmount += (additionalAmount * hostCommission) - ((additionalAmount * hostCommission) * tdsRate);
+    booking.tds += additionalAmount * tdsRate;
+    booking.totalHostAmount +=
+      additionalAmount * hostCommission -
+      additionalAmount * hostCommission * tdsRate;
     await Booking.update(
       {
-        endTripDate: booking.endTripDate, endTripTime: booking.endTripTime, amount: booking.amount
-        , GSTAmount: booking.GSTAmount, totalUserAmount: booking.totalUserAmount, tds: booking.tds, totalHostAmount: booking.totalHostAmount
+        endTripDate: booking.endTripDate,
+        endTripTime: booking.endTripTime,
+        amount: booking.amount,
+        GSTAmount: booking.GSTAmount,
+        totalUserAmount: booking.totalUserAmount,
+        tds: booking.tds,
+        totalHostAmount: booking.totalHostAmount,
       },
-      { where: { Bookingid: bookingId } });
+      { where: { Bookingid: bookingId } }
+    );
 
     const bookings = {
       bookingId: booking.Bookingid,
@@ -1833,22 +1975,28 @@ router.post('/extend-booking', authenticate, async (req, res) => {
       endTripTime: booking.endTripTime,
       GSTAmount: booking.GSTAmount,
       totalUserAmount: booking.totalUserAmount,
-    }
+    };
 
-    res.status(200).json({ message: 'Booking extended successfully', bookings });
+    res
+      .status(200)
+      .json({ message: "Booking extended successfully", bookings });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error processing extend booking request' });
+    res
+      .status(500)
+      .json({ message: "Error processing extend booking request" });
   }
 });
 //Trip-Started
-router.post('/view-breakup', authenticate, async (req, res) => {
+router.post("/view-breakup", authenticate, async (req, res) => {
   try {
     let { carId, startDate, endDate, startTime, endTime } = req.body;
     const cph = await Pricing.findOne({ where: { carid: carId } });
     const hours = calculateTripHours(startDate, endDate, startTime, endTime);
     if (!cph) {
-      return res.status(404).json({ message: 'Pricing of the car not available' });
+      return res
+        .status(404)
+        .json({ message: "Pricing of the car not available" });
     }
     const amount = Math.round(cph.costperhr * hours);
     const costperhr = cph.costperhr;
@@ -1856,10 +2004,11 @@ router.post('/view-breakup', authenticate, async (req, res) => {
     // Fetch the latest GST value from the database
     const tax = await Tax.findOne({ where: { id: 1 } }); // Assuming there's only one row for tax or fetch as per your requirements
     if (!tax) {
-      return res.status(404).json({ message: 'Tax data not found' });
+      return res.status(404).json({ message: "Tax data not found" });
     }
     let spinTripGST = amount * (tax.GST / 100) * (tax.Commission / 100);
-    let hostGst = ( amount - ( amount * tax.Commission / 100 ) ) * (tax.HostGST / 100);
+    let hostGst =
+      (amount - (amount * tax.Commission) / 100) * (tax.HostGST / 100);
     let gstAmount = spinTripGST + hostGst;
     let totalUserAmount = amount + gstAmount;
 
@@ -1874,111 +2023,107 @@ router.post('/view-breakup', authenticate, async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-router.post('/Trip-Started', authenticate, async (req, res) => {
+router.post("/Trip-Started", authenticate, async (req, res) => {
   try {
     const { bookingId } = req.body;
-    const booking = await Booking.findOne(
-      { where: { Bookingid: bookingId, status: 1 } }
-    );
+    const booking = await Booking.findOne({
+      where: { Bookingid: bookingId, status: 1 },
+    });
     if (booking) {
       await Listing.update(
         { bookingId: bookingId },
         { where: { carid: booking.carid } }
       );
-      await Booking.update(
-        { status: 2 },
-        { where: { Bookingid: bookingId } }
-      );
-      res.status(201).json({ message: 'Trip Has Started' });
+      await Booking.update({ status: 2 }, { where: { Bookingid: bookingId } });
+      res.status(201).json({ message: "Trip Has Started" });
+    } else {
+      res.status(404).json({ message: "Trip Already Started or not present" });
     }
-    else {
-      res.status(404).json({ message: 'Trip Already Started or not present' });
-    }
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
-  catch (err) {
-    res.status(500).json({ message: 'Server error' });
-  }
-
 });
 
 //Cancel-Booking
-router.post('/Cancel-Booking', authenticate, async (req, res) => {
+router.post("/Cancel-Booking", authenticate, async (req, res) => {
   try {
     const { bookingId, CancelReason } = req.body;
-    const booking = await Booking.findOne(
-      { where: { Bookingid: bookingId } }
-    );
+    const booking = await Booking.findOne({ where: { Bookingid: bookingId } });
     if (booking) {
       if (booking.status === 1 || booking.status === 5) {
         const today = new Date();
-        const cancelDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const cancelDate = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate()
+        );
         await Booking.update(
           {
             status: 4,
             cancelDate: cancelDate,
-            cancelReason: CancelReason
+            cancelReason: CancelReason,
           },
           { where: { Bookingid: bookingId } }
         );
-        res.status(201).json({ message: 'Trip Has been Cancelled' });
+        res.status(201).json({ message: "Trip Has been Cancelled" });
+      } else {
+        res.status(404).json({ message: "Ride Already Started" });
       }
-      else {
-        res.status(404).json({ message: 'Ride Already Started' });
-      }
+    } else {
+      res.status(404).json({ message: "Booking Not found" });
     }
-    else {
-      res.status(404).json({ message: 'Booking Not found' });
-    }
-  }
-  catch (err) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-router.post('/getFeedback', authenticate, async (req, res) => {
+router.post("/getFeedback", authenticate, async (req, res) => {
   try {
     const { carId } = req.body;
-    const feedback = await Feedback.findAll(
-      { where: { carId: carId } }
-    );
+    const feedback = await Feedback.findAll({ where: { carId: carId } });
     if (feedback) {
       res.status(201).json({ message: feedback });
+    } else {
+      res.status(404).json({ message: "No Feedback present" });
     }
-    else {
-      res.status(404).json({ message: 'No Feedback present' });
-    }
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
-  catch (err) {
-    res.status(500).json({ message: 'Server error' });
-  }
-
 });
 //User-Bookings
-router.get('/User-Bookings', authenticate, async (req, res) => {
+router.get("/User-Bookings", authenticate, async (req, res) => {
   try {
     let userId = req.user.userid;
-    const booking = await Booking.findAll({ where: { id: userId } })
+    const booking = await Booking.findAll({ where: { id: userId } });
     if (booking) {
       console.log(booking);
       const userBooking = booking.map(async (bookings) => {
-        const carFolder = path.join('./uploads/host/CarAdditional', bookings.carid);
+        const carFolder = path.join(
+          "./uploads/host/CarAdditional",
+          bookings.carid
+        );
         const car = await Car.findOne({
           where: {
             carid: bookings.carid,
-          }
+          },
         });
         if (!car) {
           return;
         }
-        const carAdditional = await CarAdditional.findOne({ where: { carid: bookings.carid }});
+        const carAdditional = await CarAdditional.findOne({
+          where: { carid: bookings.carid },
+        });
         let bk;
         if (fs.existsSync(carFolder)) {
           const files = fs.readdirSync(carFolder);
-          let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${bookings.carid}/${file}`);
+          let carImages = files.map(
+            (file) =>
+              `${process.env.BASE_URL}/uploads/host/CarAdditional/${bookings.carid}/${file}`
+          );
           bk = {
             bookingId: bookings.Bookingid,
             carId: bookings.carid,
@@ -2004,10 +2149,8 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             cancelDate: bookings.cancelDate,
             cancelReason: bookings.cancelReason,
             createdAt: bookings.createdAt,
-
-          }
-        }
-        else {
+          };
+        } else {
           bk = {
             bookingId: bookings.Bookingid,
             carId: bookings.carid,
@@ -2033,24 +2176,22 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             cancelDate: bookings.cancelDate,
             cancelReason: bookings.cancelReason,
             createdAt: bookings.createdAt,
-          }
+          };
         }
         return { ...bk };
       });
       const userBookings = await Promise.all(userBooking);
       res.status(201).json({ message: userBookings });
+    } else {
+      res.status(404).json({ message: "Booking Not found" });
     }
-    else {
-      res.status(404).json({ message: 'Booking Not found' });
-    }
-  }
-  catch (err) {
-    res.status(500).json({ message: 'Server error' });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 });
 
 //Booking-Completed
-router.post('/booking-completed', authenticate, async (req, res) => {
+router.post("/booking-completed", authenticate, async (req, res) => {
   try {
     const { bookingId } = req.body;
     // if (payment.status === 'captured') {
@@ -2059,26 +2200,28 @@ router.post('/booking-completed', authenticate, async (req, res) => {
         Bookingid: bookingId,
         status: 2,
         //id: userId,
-      }
+      },
     });
     if (booking) {
       const car = await Car.findOne({
         where: {
           carid: booking.carid,
-        }
+        },
       });
       await Listing.update(
         { bookingId: null },
         { where: { carid: car.carid } }
       );
-      await Booking.update(
-        { status: 3 },
-        { where: { Bookingid: bookingId } }
-      );
-      return res.status(201).json({ message: 'booking complete', redirectTo: '/rating', bookingId });
-    }
-    else {
-      return res.status(404).json({ message: 'Start the ride to Complete Booking' });
+      await Booking.update({ status: 3 }, { where: { Bookingid: bookingId } });
+      return res.status(201).json({
+        message: "booking complete",
+        redirectTo: "/rating",
+        bookingId,
+      });
+    } else {
+      return res
+        .status(404)
+        .json({ message: "Start the ride to Complete Booking" });
     }
     // }
     // else {
@@ -2087,12 +2230,12 @@ router.post('/booking-completed', authenticate, async (req, res) => {
     // }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
 //Rating
-router.post('/rating', authenticate, async (req, res) => {
+router.post("/rating", authenticate, async (req, res) => {
   try {
     let { bookingId, rating, feedback } = req.body;
     if (!rating) {
@@ -2102,36 +2245,38 @@ router.post('/rating', authenticate, async (req, res) => {
     const user = await UserAdditional.findOne({
       where: {
         id: userId,
-      }
+      },
     });
     const booking = await Booking.findOne({
       where: {
         Bookingid: bookingId,
-      }
+      },
     });
     if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
+      return res.status(404).json({ message: "Booking not found" });
     }
     const car = await Car.findOne({
       where: {
         carid: booking.carid,
-      }
+      },
     });
     if (!car) {
-      return res.status(404).json({ message: 'Car not found' });
+      return res.status(404).json({ message: "Car not found" });
     }
     const bookingCount = await Booking.count({
       where: {
         carid: booking.carid,
-      }
+      },
     });
 
-    let new_rating = (parseFloat(rating) + parseFloat(car.rating * (bookingCount - 1))) / bookingCount;
+    let new_rating =
+      (parseFloat(rating) + parseFloat(car.rating * (bookingCount - 1))) /
+      bookingCount;
     car.update({ rating: new_rating });
-    const car_ratings = await Car.sum('rating', {
+    const car_ratings = await Car.sum("rating", {
       where: {
         hostId: car.hostId,
-      }
+      },
     });
     const host = await User.update(
       { rating: car_ratings },
@@ -2144,49 +2289,49 @@ router.post('/rating', authenticate, async (req, res) => {
         userName: user.FullName,
         hostId: car.hostId,
         rating: rating,
-        comment: feedback
-      }).then(feedback => {
-        res.status(201).json({ message: 'Thank you for your response' });
-      }).catch(error => {
-        res.status(400).json({ message: 'Error creating feedback' })
-      });
-
+        comment: feedback,
+      })
+        .then((feedback) => {
+          res.status(201).json({ message: "Thank you for your response" });
+        })
+        .catch((error) => {
+          res.status(400).json({ message: "Error creating feedback" });
+        });
     }
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
 //Payment
 
 // Initiate Payment Route
-router.post('/payment', authenticate, initiatePayment);
+router.post("/payment", authenticate, initiatePayment);
 
 // Payment Status Check Route
-router.post('/status/:txnId', checkPaymentStatus);
+router.post("/status/:txnId", checkPaymentStatus);
 
 //chat
-router.get('/chat/history', authenticate, async (req, res) => {
+router.get("/chat/history", authenticate, async (req, res) => {
   const { hostId } = req.query;
   const userId = req.user.id;
 
   try {
     const chats = await Chat.findAll({
       where: { userId, hostId },
-      order: [['timestamp', 'ASC']],
+      order: [["timestamp", "ASC"]],
     });
 
     res.status(200).json({ chats });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching chat history' });
+    res.status(500).json({ message: "Error fetching chat history" });
   }
 });
 
 // Create a new chat message from user to host
-router.post('/chat', authenticate, async (req, res) => {
+router.post("/chat", authenticate, async (req, res) => {
   const { hostId, message } = req.body;
   const userId = req.user.id;
   let imagePath = null;
@@ -2203,23 +2348,24 @@ router.post('/chat', authenticate, async (req, res) => {
       imagePath,
     });
 
-    res.status(201).json({ message: 'Chat message sent', chat });
+    res.status(201).json({ message: "Chat message sent", chat });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error sending chat message' });
+    res.status(500).json({ message: "Error sending chat message" });
   }
 });
 
-
 //Support system for user
 // Create a support ticket
-router.post('/support', authenticate, createSupportTicket);
+router.post("/support", authenticate, createSupportTicket);
 
 // Add a message to a support ticket
-router.post('/support/message', authenticate, addSupportMessage);
+router.post("/support/message", authenticate, addSupportMessage);
 
-router.post('/support/supportChat', authenticate, viewSupportChats);
+router.post("/support/supportChat", authenticate, viewSupportChats);
 
-router.get('/support', authenticate, viewUserSupportTickets);
+router.get("/support", authenticate, viewUserSupportTickets);
+
+router.post("/locationdata", gpsLocation);
 
 module.exports = router;
