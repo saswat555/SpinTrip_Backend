@@ -359,6 +359,36 @@ router.get('/pricing', authenticate, async (req, res) => {
   res.status(200).json({ "message": "Car pricing asscoiated", pricing })
 });
 
+router.post('/device', async (req, res) => {
+  const payload = {
+    id: req.body.id,
+    latitude: req.body.latitude,
+    longitude: req.body.longitude,
+    speed: req.body.speed,
+    date_time: req.body.date_time
+};
+
+
+const filePath = 'payloads.json';
+
+fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err && err.code !== 'ENOENT') {
+        return res.status(500).send('Error reading file');
+    }
+
+    const existingData = data ? JSON.parse(data) : [];
+
+    existingData.push(payload);
+
+    // Write the updated content back to the file
+    fs.writeFile(filePath, JSON.stringify(existingData, null, 2), (err) => {
+        if (err) {
+            return res.status(500).send('Error writing file');
+        }
+        res.status(200).send('Payload saved successfully');
+    });
+});
+});
 
 //Support
 // View all support tickets
