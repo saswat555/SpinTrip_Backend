@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const multer = require('multer');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
 const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, CarAdditional } = require('../Models');
@@ -9,8 +10,39 @@ const fs = require('fs');
 const router = express.Router();
 const chatController = require('../Controller/chatController');
 const { viewSupportTickets, replyToSupportTicket, escalateSupportTicket, resolveSupportTicket, viewSupportChats } = require('../Controller/supportController');
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+const csv = require('csv-parser');
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '..', 'uploads', 'brand');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
 
-//Login
+const upload = multer({ storage: storage });
+
+const dataDir = path.join(__dirname, '..', 'data');
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// Initialize CSV writer
+const csvFilePath = path.join(dataDir, 'brands.csv');
+const csvWriter = createCsvWriter({
+  path: csvFilePath,
+  header: [
+    { id: 'brand', title: 'Brand' },
+    { id: 'imagePath', title: 'ImagePath' }
+  ],
+  append: true // Append to the file instead of overwriting
+});
   
   router.post('/login', async (req, res) => {
     try {
@@ -280,6 +312,56 @@ router.put('/approve-carprofile',authenticate, async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: 'Error in approving Car profile', error });
+  }
+});
+router.post('/new-brand', upload.single('carImage'), async (req, res) => {
+  try {
+    const { brand } = req.body;
+    const carImage = req.file;
+
+    // Validate input
+    if (!brand) {
+      return res.status(400).json({ message: 'Brand is required' });
+    }
+
+    let imagePath;
+    if (carImage) {
+      imagePath = `/uploads/brand/${carImage.filename}`;
+    } else {
+      imagePath = '';
+    }
+
+    let brands = [];
+
+    // Read existing brands from the CSV file
+    if (fs.existsSync(csvFilePath)) {
+      const csvContent = fs.readFileSync(csvFilePath, 'utf-8');
+      brands = csvContent.split('\n')
+        .filter(line => line.trim() !== '')
+        .map(line => {
+          const [brandField, imagePathField] = line.split(',');
+          return { brand: brandField, imagePath: imagePathField };
+        });
+    }
+
+    // Check if the brand already exists and update it, otherwise add a new brand
+    const brandIndex = brands.findIndex(b => b.brand === brand);
+    if (brandIndex > -1) {
+      // Update existing brand
+      brands[brandIndex].imagePath = imagePath;
+    } else {
+      // Add new brand
+      brands.push({ brand, imagePath });
+    }
+
+    // Write the updated list of brands back to the CSV file
+    const csvLines = brands.map(b => `${b.brand},${b.imagePath}`).join('\n');
+    fs.writeFileSync(csvFilePath, csvLines);
+
+    res.status(200).json({ message: 'Brand added/updated successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error in creating/updating brand', error });
   }
 });
 router.put('/brand', authenticate, async (req, res) => {

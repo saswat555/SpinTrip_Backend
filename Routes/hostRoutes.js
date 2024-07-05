@@ -10,41 +10,43 @@ const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricin
 const { and, TIME } = require('sequelize');
 const { sendOTP, generateOTP } = require('../Controller/hostController');
 const multer = require('multer');
+const multerS3 = require('multer-s3');
+const s3 = require('../s3config');
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { Upload } = require('@aws-sdk/lib-storage');
 const fs = require('fs');
 const path = require('path');
 const { parseString } = require('xml2js');
 const sharp = require('sharp');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const router = express.Router();
 const chatController = require('../Controller/chatController');
 const { createSupportTicket, addSupportMessage, viewSupportChats, viewUserSupportTickets } = require('../Controller/supportController');
-const carImageStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
+
+const carImageStorage = multerS3({
+  s3: s3,
+  bucket: 'spintrip-images', 
+  contentType: multerS3.AUTO_CONTENT_TYPE, 
+  key: function (req, file, cb) {
     const carId = req.body.carId;
-    const uploadPath = path.join(__dirname, '../uploads/host', 'CarAdditional', carId);
-    fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
     const imageNumber = file.fieldname.split('_')[1];
-    cb(null, `carImage_${imageNumber}${path.extname(file.originalname)}`);
+    const fileName = `carImage_${imageNumber}${path.extname(file.originalname)}`;
+    cb(null, `CarAdditional/${carId}/${fileName}`); 
   }
 });
-// const carImageStorage = multer({
-//   storage: multerS3({
-//       s3: s3,
-//       bucket: 'spintrip-car-images',
-//       contentType: multerS3.AUTO_CONTENT_TYPE,
-//       acl: 'public-read', // Adjust permissions as needed
-//       key: function (req, file, cb) {
-//           const carId = req.body.carId;
-//           const imageNumber = file.fieldname.split('_')[1];
-//           const fileName = `carImage_${imageNumber}${path.extname(file.originalname)}`;
-//           cb(null, `CarAdditional/${carId}/${fileName}`); // S3 path where the file will be stored
-//       }
-//   })
-// });
-
+const getPresignedUrl = async (bucketName, key) => {
+  try {
+    const command = new GetObjectCommand({ Bucket: bucketName, Key: key });
+    return await getSignedUrl(s3, command, { expiresIn: 3600 }); // URL expires in 1 hour
+  } catch (error) {
+    console.error(`Error generating pre-signed URL: ${error}`);
+    throw error;
+  }
+};
+const uploadCarImages = multer({ storage: carImageStorage }).fields(
+  Array.from({ length: 5 }, (_, i) => ({ name: `carImage_${i + 1}` }))
+);
 
 async function resizeImage(filePath) {
   try {
@@ -72,9 +74,7 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
-const uploadCarImages = multer({ storage: carImageStorage }).fields(
-  Array.from({ length: 5 }, (_, i) => ({ name: `carImage_${i + 1}` }))
-);
+
 const pricing = async (car, carAdditional) => {
   try {
     const currentYear = new Date().getFullYear();
@@ -516,11 +516,11 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
         bluetooth: bluetooth,
         airFreshner: airFreshner,
         ventelatedFrontSeat: ventelatedFrontSeat,
-        carimage1: carImage_1 ? carImage_1[0].destination : null,
-        carimage2: carImage_2 ? carImage_2[0].destination : null,
-        carimage3: carImage_3 ? carImage_3[0].destination : null,
-        carimage4: carImage_4 ? carImage_4[0].destination : null,
-        carimage5: carImage_5 ? carImage_5[0].destination : null,
+        carimage1: carImage_1 ? carImage_1[0].location : null,
+        carimage2: carImage_2 ? carImage_2[0].location : null,
+        carimage3: carImage_3 ? carImage_3[0].location : null,
+        carimage4: carImage_4 ? carImage_4[0].location : null,
+        carimage5: carImage_5 ? carImage_5[0].location : null,
         verification_status: 1,
         latitude: latitude,
         longitude: longitude,
@@ -608,12 +608,8 @@ router.get('/listing', authenticate, async (req, res) => {
         if (!car) {
           return;
         }
-        let carFolder = path.join('./uploads/host/CarAdditional', lstg.carid);
-        let lk;
-        if (fs.existsSync(carFolder)) {
-          const files = fs.readdirSync(carFolder);
-          let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${lstg.carid}/${file}`);
-          lk = {
+        let carAdditional = await CarAdditional.findOne({ where: { carid: lstg.carid }});   
+        let  lk = {
             id: lstg.id,
             carId: lstg.carid,
             hostId: lstg.hostid,
@@ -630,38 +626,12 @@ router.get('/listing', authenticate, async (req, res) => {
             rcNumber: car.Rcnumber,
             type: car.type,
             carModel: car.carmodel,
-            carImage1: carImages[0] ? carImages[0] : null,
-            carImage2: carImages[1] ? carImages[1] : null,
-            carImage3: carImages[2] ? carImages[2] : null,
-            carImage4: carImages[3] ? carImages[3] : null,
-            carImage5: carImages[4] ? carImages[4] : null
+            carImage1: carAdditional.carimage1,
+            carImage2: carAdditional.carimage2,
+            carImage3: carAdditional.carimage3,
+            carImage4: carAdditional.carimage4,
+            carImage5: carAdditional.carimage5,
           }
-        }
-        else {
-          lk = {
-            id: lstg.id,
-            carId: lstg.carid,
-            hostId: lstg.hostid,
-            details: lstg.details,
-            startDate: lstg.start_date,
-            startTime: lstg.start_time,
-            endDate: lstg.end_date,
-            endTime: lstg.end_time,
-            pauseTimeStartDate: lstg.pausetime_start_date,
-            pauseTimeEndDate: lstg.pausetime_end_date,
-            pauseTimeStartTime: lstg.pausetime_start_time,
-            pauseTimeEndTime: lstg.pausetime_end_time,
-            bookingId: lstg.bookingId,
-            rcNumber: car.Rcnumber,
-            type: car.type,
-            carModel: car.carmodel,
-            carImage1: null,
-            carImage2: null,
-            carImage3: null,
-            carImage4: null,
-            carImage5: null
-          }
-        }
         return { ...lk };
       });
       const hostListings = await Promise.all(listings);
@@ -867,7 +837,6 @@ router.get('/host-bookings', authenticate, async (req, res) => {
     console.log(bookings);
     if (bookings) {
       const hostBooking = bookings.map(async (booking) => {
-        const carFolder = path.join('./uploads/host/CarAdditional', booking.carid);
         const car = await Car.findOne({
           where: {
             carid: booking.carid,
@@ -877,11 +846,7 @@ router.get('/host-bookings', authenticate, async (req, res) => {
           return;
         }
         const carAdditional = await CarAdditional.findOne({ where: { carid: booking.carid } });
-        let carImages, bk;
-        if (fs.existsSync(carFolder)) {
-          const files = fs.readdirSync(carFolder);
-          carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${booking.carid}/${file}`);
-          bk = {
+        let bk = {
             bookingId: booking.Bookingid,
             carId: booking.carid,
             carModel: booking.Car.carmodel,
@@ -896,46 +861,17 @@ router.get('/host-bookings', authenticate, async (req, res) => {
             endTripDate: booking.endTripDate,
             startTripTime: booking.startTripTime,
             endTripTime: booking.endTripTime,
-            carImage1: carImages[0] ? carImages[0] : null,
-            carImage2: carImages[1] ? carImages[1] : null,
-            carImage3: carImages[2] ? carImages[2] : null,
-            carImage4: carImages[3] ? carImages[3] : null,
-            carImage5: carImages[4] ? carImages[4] : null,
+            carImage1: carAdditional.carimage1,
+            carImage2: carAdditional.carimage2,
+            carImage3: carAdditional.carimage3,
+            carImage4: carAdditional.carimage4,
+            carImage5: carAdditional.carimage5,
             latitude: carAdditional.latitude,
             longitude: carAdditional.longitude,
             cancelDate: booking.cancelDate,
             cancelReason: booking.cancelReason,
             createdAt: booking.createdAt,
           }
-        }
-        else{
-          bk = {
-          bookingId: booking.Bookingid,
-          carId: booking.carid,
-          carModel: booking.Car.carmodel,
-          id: booking.id,
-          bookedBy: booking.UserAdditional ? booking.UserAdditional.FullName : null,
-          status: booking.status,
-          amount: booking.amount,
-          tdsAmount: booking.TDSAmount,
-          totalHostAmount: booking.totalHostAmount,
-          transactionId: booking.Transactionid,
-          startTripDate: booking.startTripDate,
-          endTripDate: booking.endTripDate,
-          startTripTime: booking.startTripTime,
-          endTripTime: booking.endTripTime,
-          carImage1:  null,
-          carImage2:  null,
-          carImage3:  null,
-          carImage4:  null,
-          carImage5:  null,
-          latitude: carAdditional.latitude,
-          longitude: carAdditional.longitude,
-          cancelDate: booking.cancelDate,
-          cancelReason: booking.cancelReason,
-          createdAt: booking.createdAt,
-        }
-      } 
         return { ...bk };
       });
       const hostBookings = await Promise.all(hostBooking);
@@ -1059,6 +995,7 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
     if (!carAdditional) {
       return res.status(404).json({ message: 'Car additional information not found' });
     }
+
     let carAdditionals = {
       carId: carAdditional.carid,
       horsePower: carAdditional.HorsePower,
@@ -1095,31 +1032,21 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
       rcNumber: car.Rcnumber,
       type: car.type,
       carModel: car.carmodel,
-    }
-    // Path to the car's folder in the uploads directory
-    const carFolder = path.join('./uploads/host/CarAdditional', carId);
-    if (fs.existsSync(carFolder)) {
-      // List all files in the car's folder
-      const files = fs.readdirSync(carFolder);
-      const carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`);
+      brand: car.brand,
+      mileage: car.mileage,
+      registrationYear: car.Registrationyear
+    };
 
-      res.status(200).json({
-        message: "Car Additional data",
-        carAdditionals,
-        carImages // Including the array of car image URLs
-      });
-    } else {
-      // If no images found, return only the car additional data
-      res.status(200).json({
-        message: "Car Additional data, no images found",
-        carAdditionals
-      });
-    }
+    res.status(200).json({
+      message: "Car Additional data",
+      carAdditionals,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 
 router.post('/getCarReg', async (req, res) => {

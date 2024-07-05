@@ -13,6 +13,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
+const csv = require('csv-parser');
 const router = express.Router();
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -28,7 +29,6 @@ const storage = multer.diskStorage({
   }
 });
 const fs = require('fs');
-const GOOGLE_MAPS_API_KEY = `${process.env.GOOGLE_MAPS_API_KEY}`;
 function haversineDistance(lat1, lon1, lat2, lon2) {
   const toRad = (value) => (value * Math.PI) / 180;
   const R = 6371; // Radius of the Earth in km
@@ -312,18 +312,58 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+router.get('/get-brand', async (req, res) => {
+  try {
+    const brands = [];
+    const csvFilePath = path.join(__dirname, '..', 'data', 'brands.csv');
+
+    // Check if the file exists
+    if (!fs.existsSync(csvFilePath)) {
+      console.log(`File not found: ${csvFilePath}`);
+      return res.status(404).json({ message: 'No brands found' });
+    }
+    console.log(`Reading file: ${csvFilePath}`);
+    let brand;
+    fs.createReadStream(csvFilePath)
+      .pipe(csv({ headers: false }))
+      .on('data', (row) => {
+        if(row[1]){
+        brand = {
+          brand_name: row[0], 
+          logo_path: process.env.BASE_URL + row[1]  
+        };
+        }
+        else{
+        brand = {
+            brand_name: row[0], 
+            logo_path: null
+          };
+
+        }
+        console.log(`Read row: ${JSON.stringify(brand)}`);
+        brands.push(brand);
+      })
+      .on('end', () => {
+        res.status(200).json({ brands });
+      })
+      .on('error', (error) => {
+        console.error(`Error reading file: ${error}`);
+        res.status(500).json({ message: 'Error reading CSV file', error });
+      });
+  } catch (error) {
+    console.error(`Error in try-catch: ${error}`);
+    res.status(500).json({ message: 'Error fetching brands', error });
+  }
+});
+
+
 
 //Get All Cars
 router.get('/cars', async (req, res) => {
   const cars = await Car.findAll();
   const pricingPromises = cars.map(async (car) => {
-    const carFolder = path.join('./uploads/host/CarAdditional', car.carid);
-    let availableCar;
-    if (fs.existsSync(carFolder)) {
-      const files = fs.readdirSync(carFolder);
-      let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${car.carid}/${file}`);
-
-      availableCar = {
+    const carAdditional = await CarAdditional.findOne({ where: { carid: car.carid } });
+    let availableCar = {
         carId: car.carid,
         carModel: car.carmodel,
         type: car.type,
@@ -337,37 +377,13 @@ router.get('/cars', async (req, res) => {
         bodyType: car.bodytype,
         hostId: car.hostId,
         rating: car.rating,
-        carImage1: carImages[0] ? carImages[0] : null,
-        carImage2: carImages[1] ? carImages[1] : null,
-        carImage3: carImages[2] ? carImages[2] : null,
-        carImage4: carImages[3] ? carImages[3] : null,
-        carImage5: carImages[4] ? carImages[4] : null
+        carImage1: carAdditional.carimage1,
+        carImage2: carAdditional.carimage2,
+        carImage3: carAdditional.carimage3,
+        carImage4: carAdditional.carimage4,
+        carImage5: carAdditional.carimage5,
 
       }
-    }
-    else {
-      availableCar = {
-        carId: car.carid,
-        carModel: car.carmodel,
-        type: car.type,
-        brand: car.brand,
-        variant: car.variant,
-        color: car.color,
-        chassisNo: car.chassisno,
-        mileage: car.mileage,
-        registrationYear: car.Registrationyear,
-        rcNumber: car.Rcnumber,
-        bodyType: car.bodytype,
-        hostId: car.hostId,
-        rating: car.rating,
-        carImage1: null,
-        carImage2: null,
-        carImage3: null,
-        carImage4: null,
-        carImage5: null
-
-      }
-    }
     const cph = await Pricing.findOne({ where: { carid: car.carid } });
     if (cph) {
       const costperhr = cph.costperhr;
@@ -617,12 +633,7 @@ router.post('/findcars', authenticate, async (req, res) => {
 
       // Fetch the Pricing data for the Car
       const cph = await Pricing.findOne({ where: { carid: carId } });
-      let availableCar;
-      const carFolder = path.join('./uploads/host/CarAdditional', carId);
-      if (fs.existsSync(carFolder)) {
-        const files = fs.readdirSync(carFolder);
-        let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`);
-        availableCar = {
+      let availableCar = {
           carId: car.carid,
           carModel: car.carmodel,
           type: car.type,
@@ -650,62 +661,13 @@ router.post('/findcars', authenticate, async (req, res) => {
           longitude: carAdditional.longitude,
           fuelType: carAdditional.FuelType,
           additionalInfo: carAdditional.Additionalinfo,
-          carImage1: carImages[0] ? carImages[0] : null,
-          carImage2: carImages[1] ? carImages[1] : null,
-          carImage3: carImages[2] ? carImages[2] : null,
-          carImage4: carImages[3] ? carImages[3] : null,
-          carImage5: carImages[4] ? carImages[4] : null
+          carImage1: carAdditional.carimage1,
+          carImage2: carAdditional.carimage2,
+          carImage3: carAdditional.carimage3,
+          carImage4: carAdditional.carimage4,
+          carImage5: carAdditional.carimage5,
         }
-      }
-      else {
-        availableCar = {
-          carId: car.carid,
-          carModel: car.carmodel,
-          type: car.type,
-          brand: car.brand,
-          variant: car.variant,
-          color: car.color,
-          chassisNo: car.chassisno,
-          rcNumber: car.Rcnumber,
-          bodyType: car.bodytype,
-          hostId: car.hostId,
-          rating: car.rating,
-          mileage: car.mileage,
-          registrationYear: car.Registrationyear,
-          horsePower: carAdditional.HorsePower,
-          ac: carAdditional.AC,
-          musicSystem: carAdditional.Musicsystem,
-          autoWindow: carAdditional.Autowindow,
-          sunRoof: carAdditional.Sunroof,
-          touchScreen: carAdditional.Touchscreen,
-          sevenSeater: carAdditional.Sevenseater,
-          reverseCamera: carAdditional.Reversecamera,
-          transmission: carAdditional.Transmission,
-          airBags: carAdditional.Airbags,
-          petFriendly: carAdditional.PetFriendly,
-          powerSteering: carAdditional.PowerSteering,
-          abs: carAdditional.ABS,
-          tractionControl: carAdditional.tractionControl,
-          fullBootSpace: carAdditional.fullBootSpace,
-          keylessEntry: carAdditional.KeylessEntry,
-          airPurifier: carAdditional.airPurifier,
-          cruiseControl: carAdditional.cruiseControl,
-          voiceControl: carAdditional.voiceControl,
-          usbCharger: carAdditional.usbCharger,
-          bluetooth: carAdditional.bluetooth,
-          airFreshner: carAdditional.airFreshner,
-          ventelatedFrontSeat: carAdditional.ventelatedFrontSeat,
-          latitude: carAdditional.latitude,
-          longitude: carAdditional.longitude,
-          fuelType: carAdditional.FuelType,
-          additionalInfo: carAdditional.Additionalinfo,
-          carImage1: null,
-          carImage2: null,
-          carImage3: null,
-          carImage4: null,
-          carImage5: null
-        }
-      }
+      
       if (cph) {
         const hours = calculateTripHours(startDate, endDate, startTime, endTime);
         const amount = Math.round(cph.costperhr * hours);
@@ -1383,7 +1345,6 @@ router.get('/wishlist', authenticate, async (req, res) => {
     }
     console.log(wishlist);
     const userWishlist = wishlist.map(async (wishlists) => {
-      const carFolder = path.join('./uploads/host/CarAdditional', wishlists.carid);
       const car = await Car.findOne({
         where: {
           carid: wishlists.carid,
@@ -1395,9 +1356,6 @@ router.get('/wishlist', authenticate, async (req, res) => {
       console.log(car);
       const carAdditional = await CarAdditional.findOne({ where: { carid: wishlists.carid } });
       let wl;
-      if (fs.existsSync(carFolder)) {
-        const files = fs.readdirSync(carFolder);
-        let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${wishlists.carid}/${file}`);
         wl = {
           carId: wishlists.carid,
           carModel: car.carmodel,
@@ -1414,38 +1372,12 @@ router.get('/wishlist', authenticate, async (req, res) => {
           horsePower: carAdditional.HorsePower,
           latitude: carAdditional.latitude,
           longitude: carAdditional.longitude,
-          carImage1: carImages[0] ? carImages[0] : null,
-          carImage2: carImages[1] ? carImages[1] : null,
-          carImage3: carImages[2] ? carImages[2] : null,
-          carImage4: carImages[3] ? carImages[3] : null,
-          carImage5: carImages[4] ? carImages[4] : null,
+          carImage1: carAdditional.carimage1,
+          carImage2: carAdditional.carimage2,
+          carImage3: carAdditional.carimage3,
+          carImage4: carAdditional.carimage4,
+          carImage5: carAdditional.carimage5,
         }
-      }
-      else {
-        wl = {
-          carId: wishlists.carid,
-          carModel: car.carmodel,
-          type: car.type,
-          brand: car.brand,
-          variant: car.variant,
-          color: car.color,
-          chassisNo: car.chassisno,
-          mileage: car.mileage,
-          registrationYear: car.Registrationyear,
-          rcNumber: car.Rcnumber,
-          bodyType: car.bodytype,
-           rating: car.rating,
-          hostId: car.hostId,
-          horsePower: carAdditional.HorsePower,
-          latitude: carAdditional.latitude,
-          longitude: carAdditional.longitude,
-          carImage1: null,
-          carImage2: null,
-          carImage3: null,
-          carImage4: null,
-          carImage5: null,
-        }
-      }
       const cph = await Pricing.findOne({ where: { carid: car.carid } });
        if (cph) {
       const costperhr = cph.costperhr;
@@ -1513,24 +1445,10 @@ router.post('/getCarAdditional', async (req, res) => {
       longitude: carAdditional.longitude,
     }
     // Path to the car's folder in the uploads directory
-    const carFolder = path.join('./uploads/host/CarAdditional', carId);
-    if (fs.existsSync(carFolder)) {
-      // List all files in the car's folder
-      const files = fs.readdirSync(carFolder);
-      const carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${carId}/${file}`);
-
       res.status(200).json({
         message: "Car Additional data",
-        carAdditionals,
-        carImages // Including the array of car image URLs
+        carAdditionals, // Including the array of car image URLs
       });
-    } else {
-      // If no images found, return only the car additional data
-      res.status(200).json({
-        message: "Car Additional data, no images found",
-        carAdditionals
-      });
-    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -1976,9 +1894,6 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
         }
         const carAdditional = await CarAdditional.findOne({ where: { carid: bookings.carid }});
         let bk;
-        if (fs.existsSync(carFolder)) {
-          const files = fs.readdirSync(carFolder);
-          let carImages = files.map(file => `${process.env.BASE_URL}/uploads/host/CarAdditional/${bookings.carid}/${file}`);
           bk = {
             bookingId: bookings.Bookingid,
             carId: bookings.carid,
@@ -1994,11 +1909,11 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             endTripTime: bookings.endTripTime,
             carModel: car.carmodel,
             hostId: car.hostId,
-            carImage1: carImages[0] ? carImages[0] : null,
-            carImage2: carImages[1] ? carImages[1] : null,
-            carImage3: carImages[2] ? carImages[2] : null,
-            carImage4: carImages[3] ? carImages[3] : null,
-            carImage5: carImages[4] ? carImages[4] : null,
+            carImage1: carAdditional.carimage1,
+            carImage2: carAdditional.carimage2,
+            carImage3: carAdditional.carimage3,
+            carImage4: carAdditional.carimage4,
+            carImage5: carAdditional.carimage5,
             latitude: carAdditional.latitude,
             longitude: carAdditional.longitude,
             cancelDate: bookings.cancelDate,
@@ -2006,35 +1921,6 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             createdAt: bookings.createdAt,
 
           }
-        }
-        else {
-          bk = {
-            bookingId: bookings.Bookingid,
-            carId: bookings.carid,
-            id: bookings.id,
-            status: bookings.status,
-            amount: bookings.amount,
-            gstAmount: bookings.GSTAmount,
-            totalUserAmount: bookings.totalUserAmount,
-            transactionId: bookings.Transactionid,
-            startTripDate: bookings.startTripDate,
-            endTripDate: bookings.endTripDate,
-            startTripTime: bookings.startTripTime,
-            endTripTime: bookings.endTripTime,
-            carModel: car.carmodel,
-            hostId: car.hostId,
-            carImage1: null,
-            carImage2: null,
-            carImage3: null,
-            carImage4: null,
-            carImage5: null,
-            latitude: carAdditional.latitude,
-            longitude: carAdditional.longitude,
-            cancelDate: bookings.cancelDate,
-            cancelReason: bookings.cancelReason,
-            createdAt: bookings.createdAt,
-          }
-        }
         return { ...bk };
       });
       const userBookings = await Promise.all(userBooking);
