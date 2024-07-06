@@ -1445,10 +1445,25 @@ router.post('/getCarAdditional', async (req, res) => {
       longitude: carAdditional.longitude,
     }
     // Path to the car's folder in the uploads directory
-      res.status(200).json({
-        message: "Car Additional data",
-        carAdditionals, // Including the array of car image URLs
-      });
+    const carImages = [];
+    if (carAdditional.carimage1) carImages.push(carAdditional.carimage1);
+    if (carAdditional.carimage2) carImages.push(carAdditional.carimage2);
+    if (carAdditional.carimage3) carImages.push(carAdditional.carimage3);
+    if (carAdditional.carimage4) carImages.push(carAdditional.carimage4);
+    if (carAdditional.carimage5) carImages.push(carAdditional.carimage5);
+    if(carImages){
+    res.status(200).json({
+      message: "Car Additional data",
+      carAdditionals,
+      carImages
+    });
+   } 
+   else{
+    res.status(200).json({
+      message: "Car Additional data, no image found",
+      carAdditionals,
+    });
+  }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
