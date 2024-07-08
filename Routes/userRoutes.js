@@ -1211,16 +1211,16 @@ router.post('/booking', authenticate, async (req, res) => {
       if (!tax) {
         return res.status(404).json({ message: 'Tax data not found' });
       }
-      let spinTripGST = amount * (tax.GST / 100) * (tax.Commission / 100);
-      let hostGst = ( amount - ( amount * tax.Commission / 100 ) ) * (tax.HostGST / 100);
+      let spinTripGST = (amount * (tax.GST / 100) * (tax.Commission / 100)).toFixed(2);
+      let hostGst = ((amount - (amount * tax.Commission / 100)) * (tax.HostGST / 100)).toFixed(2);
       const tdsRate = tax.TDS / 100;
-      const HostCommision = 1 - ( tax.Commission / 100 );
-
+      const HostCommision = 1 - (tax.Commission / 100);
+      
       // Update booking amounts using dynamic tax rates
-      let gstAmount = spinTripGST + hostGst;
-      let totalUserAmount = amount + gstAmount;
-      let tds = (amount * HostCommision) * tdsRate;
-      let totalHostAmount = ( amount * HostCommision) - tds;
+      let gstAmount = (parseFloat(spinTripGST) + parseFloat(hostGst)).toFixed(2);
+      let totalUserAmount = (amount + parseFloat(gstAmount)).toFixed(2);
+      let tds = ((amount * HostCommision) * tdsRate).toFixed(2);
+      let totalHostAmount = ((amount * HostCommision) - parseFloat(tds)).toFixed(2);
       const bookingid = uuid.v4();
       let booking = await Booking.create({
         Bookingid: bookingid,
@@ -1731,28 +1731,27 @@ router.post('/extend-booking', authenticate, async (req, res) => {
     // Update booking with new end date, end time, and amount
     booking.endTripDate = newEndDate;
     booking.endTripTime = newEndTime;
-    booking.amount += additionalAmount; // Assuming amount field exists in the Booking model
-    const tax = await Tax.findOne({ where: { id: 1 } }); // Adjust the condition as necessary
+    booking.amount += additionalAmount; 
+    const tax = await Tax.findOne({ where: { id: 1 } }); 
     if (!tax) {
       return res.status(404).json({ message: 'Tax data not found' });
     }
     let spinTripGST = additionalAmount * (tax.GST / 100) * (tax.Commission / 100);
-    let hostGst = ( additionalAmount - ( additionalAmount * tax.Commission / 100 ) ) * (tax.HostGST / 100);
+    let hostGst = (additionalAmount - (additionalAmount * tax.Commission / 100)) * (tax.HostGST / 100);
     let gstAmount = spinTripGST + hostGst;
     const tdsRate = tax.TDS / 100;
     const hostCommission = 1 - (tax.Commission / 100);
-    // Update booking amounts using dynamic tax rates
-    booking.GSTAmount += gstAmount;
-    booking.totalUserAmount += additionalAmount + gstAmount;
-    booking.tds += (additionalAmount * tdsRate);
-    booking.totalHostAmount += (additionalAmount * hostCommission) - ((additionalAmount * hostCommission) * tdsRate);
+    
+    booking.GSTAmount += parseFloat(gstAmount.toFixed(2));
+    booking.totalUserAmount += parseFloat((additionalAmount + gstAmount).toFixed(2));
+    booking.tds += parseFloat((additionalAmount * tdsRate).toFixed(2));
+    booking.totalHostAmount += parseFloat(((additionalAmount * hostCommission) - ((additionalAmount * hostCommission) * tdsRate)).toFixed(2));
     await Booking.update(
       {
         endTripDate: booking.endTripDate, endTripTime: booking.endTripTime, amount: booking.amount
         , GSTAmount: booking.GSTAmount, totalUserAmount: booking.totalUserAmount, tds: booking.tds, totalHostAmount: booking.totalHostAmount
       },
       { where: { Bookingid: bookingId } });
-
     const bookings = {
       bookingId: booking.Bookingid,
       carId: booking.carid,
@@ -1846,7 +1845,7 @@ router.post('/Cancel-Booking', authenticate, async (req, res) => {
       { where: { Bookingid: bookingId } }
     );
     if (booking) {
-      if (booking.status === 1 || booking.status === 5) {
+      if (booking.status === 1 || booking.status === 5 ) {
         const today = new Date();
         const cancelDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         await Booking.update(
