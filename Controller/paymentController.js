@@ -8,10 +8,10 @@ const initiatePayment = async (req, res) => {
   try {
     const { bookingId } = req.body;
     const booking = await Booking.findOne({ where: { Bookingid: bookingId } });
+
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }
-
     if (booking.Transactionid != null && booking.status == 1 ) {
       return res.status(200).json({ message: 'Payment Already completed' });
     }
@@ -40,7 +40,6 @@ const initiatePayment = async (req, res) => {
       link_currency: 'INR',
       link_purpose: 'Booking Payment',
     };
-
     const options = {
       method: 'POST',
       url: 'https://sandbox.cashfree.com/pg/links',
@@ -84,6 +83,7 @@ const checkPaymentStatus = async (req, res) => {
     const options = {
       method: 'GET',
       url: `https://sandbox.cashfree.com/pg/links/${orderId}`,
+
       headers: {
         'Content-Type': 'application/json',
         'x-api-version': '2023-08-01',
@@ -110,6 +110,7 @@ const checkPaymentStatus = async (req, res) => {
     res.status(500).send({ message: error.message });
   }
 };
+
 
 module.exports = {
   initiatePayment,

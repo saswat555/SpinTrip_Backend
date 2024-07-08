@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, CarAdditional } = require('../Models');
+const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, CarAdditional, Tax } = require('../Models');
 const path = require('path');
 const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
 const fs = require('fs');
@@ -393,6 +393,44 @@ router.put('/brand', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Error adding Car Brand and value', error });
   }
 });
+router.put('/update_brand', authenticate, async (req, res) => {
+try{  
+  const { id, type, brand, carmodel, brand_value, base_price } = req.body;
+  const adminId = req.user.id;
+  const admin = await Admin.findByPk(adminId);
+
+  if (!admin) {
+    return res.status(404).json({ message: 'Admin not found' });
+  }
+  let brands = await Brand.update({
+    brand_value:brand_value,
+    base_price:base_price
+  },
+  { where: { id:id } }
+  );
+  res.status(200).json({ message: 'Car Brand and Value updated successfully', brands });
+} catch (error) {
+  console.log(error);
+  res.status(500).json({ message: 'Error adding Car Brand and value', error });
+}
+});
+router.post('/tax', async (req, res) => {
+  try{  
+    const { GST, HostGST, TDS, Commission } = req.body;
+  
+    let tax = await Tax.create({
+      GST: GST,
+      HostGST: HostGST,
+      TDS: TDS,
+      Commission: Commission 
+    }
+    );
+    res.status(200).json({ message: 'Tax Updated', tax });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error adding Car Brand and value', error });
+  }
+  });
 router.get('/brand', authenticate, async (req, res) => {
   try {
     const adminId = req.user.id;

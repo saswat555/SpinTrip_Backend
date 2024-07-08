@@ -5,21 +5,18 @@ services:
     ports:
       - "2000:2000"
     environment:
-      - DB_HOST=db
+      - DB_HOST=3.108.218.32
       - DB_USER=postgres
       - DB_PASSWORD=1234
       - DB_PORT=5432
       - DB_NAME=mydatabase
-
-    depends_on:
-      - db
 
   admin:
     build: ../SpinTrip-Admin
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_HOST=db
+      - DB_HOST=3.108.218.32
       - DATABASE_USER=postgres
       - DATABASE_PASSWORD=1234
       - DATABASE_PORT=5432
@@ -27,24 +24,6 @@ services:
       - COOKIE_SECRET=Qd4wdmnQmDOJUNmqubhELirrXJghkE0E
       - API_HOST=54.206.23.199
       - API_PORT=2000
-      - DATABASE_URL=postgres://postgres:1234@db:5432/mydatabase
+      - DATABASE_URL=postgres:3.108.218.32//postgres:1234@db:5432/mydatabase
       - DATABASE_DIALECT=postgres
       - PORT=3000
-
-    depends_on:
-      - db    
-
-  db:
-    image: postgres:16
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=1234
-      - POSTGRES_DB=mydatabase
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-
-
-
-volumes:
-  pgdata:
