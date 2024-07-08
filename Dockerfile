@@ -10,7 +10,7 @@ COPY ./package*.json ./
 # Install app dependencies with verbose log level and ignore optional dependencies
 RUN npm i --loglevel verbose --no-optional
 
-RUN npm install --cpu=x64 --os=linux --libc=glibc sharp
+RUN npm install --platform=linux --arch=arm64 sharp
 # Copy the application code into the container
 COPY . .
 
