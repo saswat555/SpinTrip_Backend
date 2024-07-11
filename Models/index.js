@@ -1,8 +1,5 @@
 const { Sequelize, DataTypes } = require('sequelize');
-
-// Database connection with the dialect of PostgreSQL specifying the database we are using
-// Port for my database is 5432
-// Database name is database_development
+const { Worker } = require('worker_threads');
 require('dotenv').config();
 
 const DB_HOST = process.env.DB_HOST;
@@ -13,15 +10,17 @@ const DB_NAME = process.env.DB_NAME;
 
 const sequelize = new Sequelize(`postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}`, {
   dialect: 'postgres',
+  pool: {
+    max: 20,
+    min: 5,
+    acquire: 30000,
+    idle: 10000
+  }
 });
 
-
-
-// Checking if connection is established
-sequelize
-  .authenticate()
+sequelize.authenticate()
   .then(() => {
-    console.log('Database connected to database successfully');
+    console.log('Database connected successfully');
   })
   .catch((err) => {
     console.error('Unable to connect to the database:', err);
@@ -50,17 +49,17 @@ db.Wishlist = require('./wishlistModel')(sequelize, DataTypes);
 db.Transaction = require('./TransactionModel')(sequelize, DataTypes);
 const associateModels = () => {
   const { User, Admin, Car, Host, UserAdditional, Booking, Listing, CarAdditional, Feedback, Support, SupportChat, Tax, Wishlist } = sequelize.models;
-  
+
   Support.belongsTo(User, { foreignKey: 'userId' });
   SupportChat.belongsTo(Support, { foreignKey: 'supportId' });
   SupportChat.belongsTo(User, { foreignKey: 'userId' });
   SupportChat.belongsTo(Admin, { foreignKey: 'adminId' });
-  
+
   User.hasMany(Support, { foreignKey: 'userId' });
   Support.hasMany(SupportChat, { foreignKey: 'supportId' });
   User.hasMany(SupportChat, { foreignKey: 'userId' });
   Admin.hasMany(SupportChat, { foreignKey: 'adminId' });
-  
+
   Host.belongsTo(User, { foreignKey: 'id' });
   Admin.belongsTo(User, { foreignKey: 'id' });
   UserAdditional.belongsTo(User, { foreignKey: 'id' });
@@ -83,8 +82,4 @@ const associateModels = () => {
 
 associateModels();
 
-// Exporting the module
-module.exports = db;
-associateModels();
-// Exporting the module
 module.exports = db;
