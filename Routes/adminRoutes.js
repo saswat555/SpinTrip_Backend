@@ -479,18 +479,18 @@ router.get('/pricing', authenticate, async (req, res) => {
   res.status(200).json({ "message": "Car pricing asscoiated", pricing })
 });
 
-router.get('/device', async (req, res) => {
+router.get('/device', (req, res) => {
   const queryParams = req.query;
   console.log(req.query);
 
-  // Construct CSV row from query parameters
   const csvRow = Object.values(queryParams).join(',') + '\n';
-
   const filePath = 'payloads.csv';
 
-  // Check if the file exists, create headers if not
+  // Check if the file exists
   if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, Object.keys(queryParams).join(',') + '\n');
+    // Create new file and write header
+    const header = Object.keys(queryParams).join(',') + '\n';
+    fs.writeFileSync(filePath, header);
   }
 
   // Append the CSV row to the file
@@ -503,7 +503,30 @@ router.get('/device', async (req, res) => {
     res.status(200).send('Payload saved successfully');
   });
 });
+router.get('/device/:id', (req, res) => {
+  const id = req.params.id;
+  const filePath = 'payloads.csv';
+  const results = [];
 
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('CSV file not found');
+  }
+
+  fs.createReadStream(filePath)
+    .pipe(csv())
+    .on('data', (row) => {
+      if (row.id === id) {
+        results.push(row);
+      }
+    })
+    .on('end', () => {
+      if (results.length === 0) {
+        return res.status(404).send('No data found for the provided id');
+      }
+      const last5Entries = results.slice(-5);
+      res.json(last5Entries);
+    });
+});
 //Support
 // View all support tickets
 router.get('/support', viewSupportTickets);
