@@ -479,35 +479,29 @@ router.get('/pricing', authenticate, async (req, res) => {
   res.status(200).json({ "message": "Car pricing asscoiated", pricing })
 });
 
-router.post('/device', async (req, res) => {
-  const payload = {
-    id: req.body.id,
-    latitude: req.body.latitude,
-    longitude: req.body.longitude,
-    speed: req.body.speed,
-    date_time: req.body.date_time
-};
+router.get('/device', async (req, res) => {
+  const queryParams = req.query;
+  console.log(req.query);
 
+  // Construct CSV row from query parameters
+  const csvRow = Object.values(queryParams).join(',') + '\n';
 
-const filePath = 'payloads.json';
+  const filePath = 'payloads.csv';
 
-fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err && err.code !== 'ENOENT') {
-        return res.status(500).send('Error reading file');
+  // Check if the file exists, create headers if not
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, Object.keys(queryParams).join(',') + '\n');
+  }
+
+  // Append the CSV row to the file
+  fs.appendFile(filePath, csvRow, (err) => {
+    if (err) {
+      console.error('Error appending to CSV file:', err);
+      return res.status(500).send('Error appending to CSV file');
     }
-
-    const existingData = data ? JSON.parse(data) : [];
-
-    existingData.push(payload);
-
-    // Write the updated content back to the file
-    fs.writeFile(filePath, JSON.stringify(existingData, null, 2), (err) => {
-        if (err) {
-            return res.status(500).send('Error writing file');
-        }
-        res.status(200).send('Payload saved successfully');
-    });
-});
+    console.log('Data appended to CSV file successfully');
+    res.status(200).send('Payload saved successfully');
+  });
 });
 
 //Support
