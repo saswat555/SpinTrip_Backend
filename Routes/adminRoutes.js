@@ -3,8 +3,9 @@ const bcrypt = require('bcrypt');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, CarAdditional, Tax } = require('../Models');
+const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, CarAdditional, Tax, Device, Feature } = require('../Models');
 const path = require('path');
+const uuid = require('uuid');
 const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
 const fs = require('fs');
 const router = express.Router();
@@ -479,53 +480,99 @@ router.get('/pricing', authenticate, async (req, res) => {
   res.status(200).json({ "message": "Car pricing asscoiated", pricing })
 });
 
-router.get('/device', (req, res) => {
-  const queryParams = req.query;
-  console.log(req.query);
-
-  const csvRow = Object.values(queryParams).join(',') + '\n';
-  const filePath = 'payloads.csv';
-
-  // Check if the file exists
-  if (!fs.existsSync(filePath)) {
-    // Create new file and write header
-    const header = Object.keys(queryParams).join(',') + '\n';
-    fs.writeFileSync(filePath, header);
-  }
-
-  // Append the CSV row to the file
-  fs.appendFile(filePath, csvRow, (err) => {
-    if (err) {
-      console.error('Error appending to CSV file:', err);
-      return res.status(500).send('Error appending to CSV file');
+router.post('/features', async (req, res) => {
+  try{  
+    const { featureName } = req.body;
+    // const adminId = req.user.id;
+    // const admin = await Admin.findByPk(adminId);
+  
+    // if (!admin) {
+    //   return res.status(404).json({ message: 'Admin not found' });
+    // }
+    
+    let id = uuid.v4();
+    const past_feature = await Feature.findOne({ where: { featureName: featureName }});
+    if(past_feature){
+      return res.status(400).json({ message: 'Car feature already present' });
     }
-    console.log('Data appended to CSV file successfully');
-    res.status(200).send('Payload saved successfully');
-  });
-});
-router.get('/device/:id', (req, res) => {
-  const id = req.params.id;
-  const filePath = 'payloads.csv';
-  const results = [];
-
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send('CSV file not found');
+    let feature = await Feature.create({
+      id:id,
+      featureName: featureName
+    }, 
+    );
+    res.status(200).json({ message: 'Car feature added successfully', feature });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error adding features', error });
   }
+});
 
-  fs.createReadStream(filePath)
-    .pipe(csv())
-    .on('data', (row) => {
-      if (row.id === id) {
-        results.push(row);
-      }
-    })
-    .on('end', () => {
-      if (results.length === 0) {
-        return res.status(404).send('No data found for the provided id');
-      }
-      const last5Entries = results.slice(-5);
-      res.json(last5Entries);
+router.get('/allfeatures', async (req, res) => {
+  try {
+    const features = await Feature.findAll();
+    res.status(200).json(features);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching features', error });
+  }
+});
+
+router.delete('/features/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const feature = await Feature.findOne({ where: { id: id }});
+    if (!feature) {
+      return res.status(404).json({ message: 'Feature not found' });
+    }
+    await feature.destroy();
+    res.status(200).json({ message: 'Feature deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error deleting feature', error });
+  }
+});
+
+router.get('/device', async (req, res) => {
+  const queryParams = req.query;
+  try {
+    // Create new device entry in the database
+    const newDevice = await Device.create({
+      deviceid: queryParams.id,
+      lat: queryParams.lat,
+      lng: queryParams.lng,
+      speed: queryParams.speed,
+      date: queryParams.date,
+      time: queryParams.time,
     });
+
+    console.log('Data saved to database successfully:', newDevice.toJSON());
+    res.status(200).send('Payload saved successfully');
+  } catch (error) {
+    console.error('Error saving data to database:', error.message);
+    res.status(500).send('Error saving data to database');
+  }
+});
+router.get('/device/:id', async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const results = await Device.findAll({
+      where: {
+        deviceid: id,
+      },
+      order: [['createdAt', 'DESC']], 
+      limit: 5,
+    });
+
+    if (results.length === 0) {
+      return res.status(404).send('No data found for the provided id');
+    }
+
+    res.json(results);
+  } catch (error) {
+    console.error('Error retrieving data from database:', error.message);
+    res.status(500).send('Error retrieving data from database');
+  }
 });
 //Support
 // View all support tickets

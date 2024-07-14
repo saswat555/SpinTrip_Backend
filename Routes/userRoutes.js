@@ -3,29 +3,30 @@ const express = require('express');
 const uuid = require('uuid');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host, Tax, Wishlist } = require('../Models');
+const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional,
+       carFeature, Feedback, Host, Tax, Wishlist, Feature } = require('../Models');
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { initiatePayment, checkPaymentStatus } = require('../Controller/paymentController');
 const chatController = require('../Controller/chatController');
 const { createSupportTicket, addSupportMessage, viewSupportChats, viewUserSupportTickets } = require('../Controller/supportController');
 const { Op } = require('sequelize');
+const multerS3 = require('multer-s3');
+const s3 = require('../s3Config');
 const crypto = require('crypto');
 const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
 const csv = require('csv-parser');
 const router = express.Router();
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const userId = req.user.id; // Assuming req.user.id contains the user ID
-    const uploadPath = path.join(__dirname, '../uploads', userId.toString());
-    fs.mkdirSync(uploadPath, { recursive: true }); // Ensure directory exists
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    // Use field name as file name
-    let filename = file.fieldname + path.extname(file.originalname);
-    cb(null, filename);
+const ImageStorage = multerS3({
+  s3: s3,
+  bucket: 'spintrip-images', 
+  contentType: multerS3.AUTO_CONTENT_TYPE, 
+  key: function (req, file, cb) {
+    const userId = req.user.id;
+    const fileName = `${file.fieldname}${path.extname(file.originalname)}`;
+    const filePath = `${userId}/${fileName}`;
+    cb(null, filePath);
   }
 });
 const fs = require('fs');
@@ -43,7 +44,7 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
 
   return R * c; // Distance in km
 }
-const upload = multer({ storage: storage });
+const upload = multer({ storage: ImageStorage });
 const resizeImage = async (buffer) => {
   let resizedBuffer = buffer;
   try {
@@ -1409,6 +1410,7 @@ router.post('/getCarAdditional', async (req, res) => {
     if (!carAdditional) {
       return res.status(404).json({ message: 'Car additional information not found' });
     }
+    const features = await carFeature.findAll({ where: { carid: carId } });
     let carAdditionals = {
       carId: carAdditional.carid,
       horsePower: carAdditional.HorsePower,
@@ -1455,13 +1457,15 @@ router.post('/getCarAdditional', async (req, res) => {
     res.status(200).json({
       message: "Car Additional data",
       carAdditionals,
-      carImages
+      carImages,
+      features
     });
    } 
    else{
     res.status(200).json({
       message: "Car Additional data, no image found",
       carAdditionals,
+      features
     });
   }
   } catch (error) {
