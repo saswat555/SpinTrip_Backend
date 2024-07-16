@@ -69,7 +69,7 @@ const pricing = async (car, carAdditional) => {
     let brand = await Brand.findOne({
       where: { carmodel: car.carmodel, type: car.type, brand: car.brand },
     });
-
+    
     if (brand) {
       brand_value = brand.brand_value;
       base_price = brand.base_price;
