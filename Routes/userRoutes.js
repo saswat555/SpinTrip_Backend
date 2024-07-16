@@ -3,29 +3,30 @@ const express = require('express');
 const uuid = require('uuid');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
-const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional, Feedback, Host, Tax, Wishlist } = require('../Models');
+const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional,
+       carFeature, Feedback, Host, Tax, Wishlist, Feature } = require('../Models');
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
 const { initiatePayment, checkPaymentStatus } = require('../Controller/paymentController');
 const chatController = require('../Controller/chatController');
 const { createSupportTicket, addSupportMessage, viewSupportChats, viewUserSupportTickets } = require('../Controller/supportController');
 const { Op } = require('sequelize');
+const multerS3 = require('multer-s3');
+const s3 = require('../s3Config');
 const crypto = require('crypto');
 const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
 const csv = require('csv-parser');
 const router = express.Router();
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const userId = req.user.id; // Assuming req.user.id contains the user ID
-    const uploadPath = path.join(__dirname, '../uploads', userId.toString());
-    fs.mkdirSync(uploadPath, { recursive: true }); // Ensure directory exists
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    // Use field name as file name
-    let filename = file.fieldname + path.extname(file.originalname);
-    cb(null, filename);
+const ImageStorage = multerS3({
+  s3: s3,
+  bucket: 'spintrip-images', 
+  contentType: multerS3.AUTO_CONTENT_TYPE, 
+  key: function (req, file, cb) {
+    const userId = req.user.id;
+    const fileName = `${file.fieldname}${path.extname(file.originalname)}`;
+    const filePath = `${userId}/${fileName}`;
+    cb(null, filePath);
   }
 });
 const fs = require('fs');
@@ -43,7 +44,7 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
 
   return R * c; // Distance in km
 }
-const upload = multer({ storage: storage });
+const upload = multer({ storage: ImageStorage });
 const resizeImage = async (buffer) => {
   let resizedBuffer = buffer;
   try {
@@ -696,7 +697,7 @@ router.post('/findcars', authenticate, async (req, res) => {
 
 
 router.post('/onecar', async (req, res) => {
-  const { carId, startDate, endDate, startTime, endTime } = req.body;
+  const { carId, startDate, endDate, startTime, endTime, features } = req.body;
   try {
     const availableListings = await Listing.findOne({
       where: {
@@ -938,8 +939,19 @@ router.post('/onecar', async (req, res) => {
       }
       if (cph) {
         const hours = calculateTripHours(startDate, endDate, startTime, endTime);
-        const amount = Math.round(cph.costperhr * hours);
+        let amount = Math.round(cph.costperhr * hours);
         const costperhr = cph.costperhr;
+        let featureCost = 0;
+        if(features){
+        for (const feature of features) {
+          const featureDetail = await carFeature.findOne({ where: { featureid: feature, carid: carId } });
+          if (featureDetail) {
+            featureCost += featureDetail.price;
+          }
+        }
+        }
+    
+        amount += featureCost;
         // Include pricing information in the car object
         res.status(200).json({ cars, pricing: { costPerHr: costperhr, hours: hours, amount: amount } });
       } else {
@@ -975,7 +987,7 @@ function calculateTripHours(startTripDate, endTripDate, startTripTime, endTripTi
 //Booking
 router.post('/booking', authenticate, async (req, res) => {
   try {
-    const { carId, startDate, endDate, startTime, endTime } = req.body;
+    const { carId, startDate, endDate, startTime, endTime, features } = req.body;
     const userId = req.user.userid;
     const userAdd = await UserAdditional.findOne({
       where: {
@@ -1207,6 +1219,16 @@ router.post('/booking', authenticate, async (req, res) => {
       let cph = await Pricing.findOne({ where: { carid: carId } })
       let hours = calculateTripHours(startDate, endDate, startTime, endTime);
       let amount = Math.round(cph.costperhr * hours);
+      let featureCost = 0;
+      if(features){
+      for (const feature of features) {
+        const featureDetail = await carFeature.findOne({ where: { featureid: feature, carid: carId } });
+        if (featureDetail) {
+          featureCost += featureDetail.price;
+        }
+      }
+      }
+      amount += featureCost;
       const tax = await Tax.findOne({ where: { id: 1 } }); // Adjust the condition as necessary
       if (!tax) {
         return res.status(404).json({ message: 'Tax data not found' });
@@ -1409,6 +1431,7 @@ router.post('/getCarAdditional', async (req, res) => {
     if (!carAdditional) {
       return res.status(404).json({ message: 'Car additional information not found' });
     }
+    const features = await carFeature.findAll({ where: { carid: carId } });
     let carAdditionals = {
       carId: carAdditional.carid,
       horsePower: carAdditional.HorsePower,
@@ -1455,13 +1478,15 @@ router.post('/getCarAdditional', async (req, res) => {
     res.status(200).json({
       message: "Car Additional data",
       carAdditionals,
-      carImages
+      carImages,
+      features
     });
    } 
    else{
     res.status(200).json({
       message: "Car Additional data, no image found",
       carAdditionals,
+      features
     });
   }
   } catch (error) {
@@ -1776,13 +1801,25 @@ router.post('/extend-booking', authenticate, async (req, res) => {
 //Trip-Started
 router.post('/view-breakup', authenticate, async (req, res) => {
   try {
-    let { carId, startDate, endDate, startTime, endTime } = req.body;
+    let { carId, startDate, endDate, startTime, endTime, features } = req.body;
     const cph = await Pricing.findOne({ where: { carid: carId } });
     const hours = calculateTripHours(startDate, endDate, startTime, endTime);
     if (!cph) {
       return res.status(404).json({ message: 'Pricing of the car not available' });
     }
-    const amount = Math.round(cph.costperhr * hours);
+    let amount = Math.round(cph.costperhr * hours);
+
+    let featureCost = 0;
+    if(features){
+    for (const feature of features) {
+      const featureDetail = await carFeature.findOne({ where: { featureid: feature, carid: carId } });
+      if (featureDetail) {
+        featureCost += featureDetail.price;
+      }
+    }
+    }
+
+    amount += featureCost;
     const costperhr = cph.costperhr;
 
     // Fetch the latest GST value from the database

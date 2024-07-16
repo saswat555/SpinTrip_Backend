@@ -62,7 +62,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Middleware
 app.use(helmet());
-app.use(cors({ origin: ['https://spintrip.in', 'http://localhost', 'http://localhost:3000'] }));
+app.use(cors({ origin: ['https://spintrip.in', 'http://localhost', 'http://localhost:3000','http://3.109.133.60:3000'] }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());

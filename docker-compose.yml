@@ -1,29 +1,12 @@
 version: '3.8'
 services:
   app:
-    image: spintrip555/spintrip-backend:15.0
+    image: spintrip555/spintrip_backend:22.0
     ports:
       - "2000:2000"
     environment:
       - DB_HOST=3.108.218.32
       - DB_USER=postgres
       - DB_PASSWORD=1234
-      - DB_PORT=5432
+      - DB_PORT=5000
       - DB_NAME=mydatabase
-
-  admin:
-    build: ../SpinTrip-Admin
-    ports:
-      - "3000:3000"
-    environment:
-      - DB_HOST=3.108.218.32
-      - DATABASE_USER=postgres
-      - DATABASE_PASSWORD=1234
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=mydatabase
-      - COOKIE_SECRET=Qd4wdmnQmDOJUNmqubhELirrXJghkE0E
-      - API_HOST=54.206.23.199
-      - API_PORT=2000
-      - DATABASE_URL=postgres:3.108.218.32//postgres:1234@db:5432/mydatabase
-      - DATABASE_DIALECT=postgres
-      - PORT=3000

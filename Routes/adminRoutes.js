@@ -3,8 +3,9 @@ const bcrypt = require('bcrypt');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, CarAdditional, Tax } = require('../Models');
+const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, CarAdditional, Tax, Device, Feature } = require('../Models');
 const path = require('path');
+const uuid = require('uuid');
 const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
 const fs = require('fs');
 const router = express.Router();
@@ -479,37 +480,100 @@ router.get('/pricing', authenticate, async (req, res) => {
   res.status(200).json({ "message": "Car pricing asscoiated", pricing })
 });
 
-router.post('/device', async (req, res) => {
-  const payload = {
-    id: req.body.id,
-    latitude: req.body.latitude,
-    longitude: req.body.longitude,
-    speed: req.body.speed,
-    date_time: req.body.date_time
-};
+router.post('/features', async (req, res) => {
+  try{  
+    const { featureName } = req.body;
+    // const adminId = req.user.id;
+    // const admin = await Admin.findByPk(adminId);
+  
+    // if (!admin) {
+    //   return res.status(404).json({ message: 'Admin not found' });
+    // }
+    
+    let id = uuid.v4();
+    const past_feature = await Feature.findOne({ where: { featureName: featureName }});
+    if(past_feature){
+      return res.status(400).json({ message: 'Car feature already present' });
+    }
+    let feature = await Feature.create({
+      id:id,
+      featureName: featureName
+    }, 
+    );
+    res.status(200).json({ message: 'Car feature added successfully', feature });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error adding features', error });
+  }
+});
 
+router.get('/allfeatures', async (req, res) => {
+  try {
+    const features = await Feature.findAll();
+    res.status(200).json(features);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching features', error });
+  }
+});
 
-const filePath = 'payloads.json';
+router.delete('/features/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const feature = await Feature.findOne({ where: { id: id }});
+    if (!feature) {
+      return res.status(404).json({ message: 'Feature not found' });
+    }
+    await feature.destroy();
+    res.status(200).json({ message: 'Feature deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error deleting feature', error });
+  }
+});
 
-fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err && err.code !== 'ENOENT') {
-        return res.status(500).send('Error reading file');
+router.get('/device', async (req, res) => {
+  const queryParams = req.query;
+  try {
+    // Create new device entry in the database
+    const newDevice = await Device.create({
+      deviceid: queryParams.id,
+      lat: queryParams.lat,
+      lng: queryParams.lng,
+      speed: queryParams.speed,
+      date: queryParams.date,
+      time: queryParams.time,
+    });
+
+    console.log('Data saved to database successfully:', newDevice.toJSON());
+    res.status(200).send('Payload saved successfully');
+  } catch (error) {
+    console.error('Error saving data to database:', error.message);
+    res.status(500).send('Error saving data to database');
+  }
+});
+router.get('/device/:id', async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const results = await Device.findAll({
+      where: {
+        deviceid: id,
+      },
+      order: [['createdAt', 'DESC']], 
+      limit: 5,
+    });
+
+    if (results.length === 0) {
+      return res.status(404).send('No data found for the provided id');
     }
 
-    const existingData = data ? JSON.parse(data) : [];
-
-    existingData.push(payload);
-
-    // Write the updated content back to the file
-    fs.writeFile(filePath, JSON.stringify(existingData, null, 2), (err) => {
-        if (err) {
-            return res.status(500).send('Error writing file');
-        }
-        res.status(200).send('Payload saved successfully');
-    });
+    res.json(results);
+  } catch (error) {
+    console.error('Error retrieving data from database:', error.message);
+    res.status(500).send('Error retrieving data from database');
+  }
 });
-});
-
 //Support
 // View all support tickets
 router.get('/support', viewSupportTickets);

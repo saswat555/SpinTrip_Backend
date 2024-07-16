@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
 const { Sequelize, Op } = require('sequelize');
 const { fn, col, sum, count } = require('sequelize');
-const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand, Feedback } = require('../Models');
+const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand, Feedback, carFeature,Feature } = require('../Models');
 const { and, TIME } = require('sequelize');
 const { sendOTP, generateOTP } = require('../Controller/hostController');
 const multer = require('multer');
@@ -35,19 +35,20 @@ const carImageStorage = multerS3({
     cb(null, `CarAdditional/${carId}/${fileName}`); 
   }
 });
-const getPresignedUrl = async (bucketName, key) => {
-  try {
-    const command = new GetObjectCommand({ Bucket: bucketName, Key: key });
-    return await getSignedUrl(s3, command, { expiresIn: 3600 }); // URL expires in 1 hour
-  } catch (error) {
-    console.error(`Error generating pre-signed URL: ${error}`);
-    throw error;
-  }
-};
 const uploadCarImages = multer({ storage: carImageStorage }).fields(
   Array.from({ length: 5 }, (_, i) => ({ name: `carImage_${i + 1}` }))
 );
-
+const profileImageStorage = multerS3({
+  s3: s3,
+  bucket: 'spintrip-images', 
+  contentType: multerS3.AUTO_CONTENT_TYPE, 
+  key: function (req, file, cb) {
+    const userId = req.user.id;
+    const fileName = `${file.fieldname}${path.extname(file.originalname)}`;
+    const filePath = `${userId}/${fileName}`;
+    cb(null, filePath);
+  }
+});
 async function resizeImage(filePath) {
   try {
     await sharp(filePath)
@@ -60,20 +61,7 @@ async function resizeImage(filePath) {
   }
 }
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const userId = req.user.id;
-    const uploadPath = path.join(__dirname, '../uploads', userId.toString());
-    fs.mkdirSync(uploadPath, { recursive: true });
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    let filename = file.fieldname + path.extname(file.originalname);
-    cb(null, filename);
-  }
-});
-
-const upload = multer({ storage: storage });
+const upload = multer({ storage: profileImageStorage });
 
 const pricing = async (car, carAdditional) => {
   try {
@@ -81,7 +69,7 @@ const pricing = async (car, carAdditional) => {
     let brand = await Brand.findOne({
       where: { carmodel: car.carmodel, type: car.type, brand: car.brand },
     });
-
+    
     if (brand) {
       brand_value = brand.brand_value;
       base_price = brand.base_price;
@@ -256,60 +244,20 @@ router.get('/profile', authenticate, async (req, res) => {
     const user = await User.findOne({where: {id: hostId}});
     const cars = await Car.findAll({ where: { hostId: host.id } })
     let additionalInfo = await UserAdditional.findByPk(hostId);
-    const userFolder = path.join('./uploads', String(hostId));
-    let profile;
-    if (fs.existsSync(userFolder)) {
-      // List all files in the user's folder
-      const files = fs.readdirSync(userFolder);
+    console.log(additionalInfo);
+    let profile = {
+          id: additionalInfo.id,
+          dlNumber: additionalInfo.Dlverification,
+          fullName: additionalInfo.FullName,
+          email: additionalInfo.Email,
+          aadharNumber: additionalInfo.AadharVfid,
+          address: additionalInfo.Address,
+          verificationStatus: additionalInfo.verification_status,
+          phone: user.phone,
+          profilePic: additionalInfo.profilepic
+        }
       
-      if (files) {
 
-        // Filter and create URLs for Aadhar and DL file
-        const profilePic = files.filter(file => file.includes('profilePic')).map(file => `${process.env.BASE_URL}/uploads/${hostId}/${file}`);
-        profile = {
-          id: additionalInfo.id,
-          dlNumber: additionalInfo.Dlverification,
-          fullName: additionalInfo.FullName,
-          email: additionalInfo.Email,
-          aadharNumber: additionalInfo.AadharVfid,
-          address: additionalInfo.Address,
-          verificationStatus: additionalInfo.verification_status,
-          phone: user.phone,
-          profilePic: profilePic
-        }
-      }
-      else {
-        profile = {
-          id: additionalInfo.id,
-          dlNumber: additionalInfo.Dlverification,
-          fullName: additionalInfo.FullName,
-          email: additionalInfo.Email,
-          aadharNumber: additionalInfo.AadharVfid,
-          address: additionalInfo.Address,
-          verificationStatus: additionalInfo.verification_status,
-          phone: user.phone,
-          dl: 'null',
-          aadhar: 'null',
-          profilePic: 'null'
-        }
-      }
-
-    }
-    else {
-      profile = {
-        id: additionalInfo?.id || null,
-        dlNumber: additionalInfo?.Dlverification || null,
-        fullName: additionalInfo?.FullName || null,
-        email: additionalInfo?.Email || null,
-        aadharNumber: additionalInfo?.AadharVfid || null,
-        address: additionalInfo?.Address || null,
-        verificationStatus: additionalInfo?.verification_status || null,
-        phone: user.phone,
-        dl: 'null',
-        aadhar: 'null',
-        profilePic: 'null'
-      };
-    }
     // You can include more fields as per your User model
     res.json({ hostDetails: host, cars, profile });
   } catch (error) {
@@ -331,9 +279,10 @@ router.put('/verify', authenticate, upload.fields([{ name: 'profilePic', maxCoun
       if (req.files['profilePic']) files.push(req.files['profilePic'][0]);
     }
     const { profilePic } = req.files;
+    console.log(profilePic);
     if (profilePic) {
       await UserAdditional.update({
-        profilepic: profilePic[0].destination,
+        profilepic: profilePic ? profilePic[0].location : null,
       }, { where: { id: userId } });
     }
 
@@ -640,6 +589,92 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
     res.status(500).json({ message: 'Error Adding car Addtional Details' });
   }
 });
+
+router.post('/features', authenticate, async (req, res) => {
+
+  try {
+    const {
+      featureid,
+      carid,
+      price
+    } = req.body;
+    const feature = await Feature.findOne({ where: { id: featureid } });
+    if (!feature) {
+      return res.status(400).json({ message: 'Feature not available' });
+    }
+    else {
+      const car = await Car.findOne({ where: { carid: carid , hostId: req.user.id } });
+      if (!car) {
+       return res.status(400).json({ message: 'Car is not available' });
+      }
+      const carfeature = await carFeature.findOne({ where: { featureid: featureid, carid: carid } });
+      if (carfeature) {
+        return res.status(400).json({ message: 'Car feature already added' });
+       }
+      const updated_feature = await carFeature.create({
+        featureid: featureid,
+        carid: carid,
+        price: price
+      });
+      let response  = {
+        carid: updated_feature.carid,
+        featureid: updated_feature.featureid,
+        price: updated_feature.price,
+      }
+      res.status(201).json({ message: 'Feature with Price added', response });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error Adding car feature Details' });
+  }
+});
+// Update Feature
+router.put('/features', authenticate, async (req, res) => {
+  try {
+    const { featureid, carid, price } = req.body;
+
+    const carFeatureRecord = await carFeature.findOne({ where: { featureid, carid } });
+    if (!carFeatureRecord) {
+      return res.status(404).json({ message: 'Feature not found for the car' });
+    }
+
+    const car = await Car.findOne({ where: { carid: carid, hostId: req.user.id } });
+    if (!car) {
+      return res.status(400).json({ message: 'Car is not available' });
+    }
+
+    await carFeatureRecord.update({ price });
+
+    res.status(200).json({ message: 'Feature price updated successfully', carFeatureRecord });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error updating car feature details' });
+  }
+});
+
+// Delete Feature
+router.delete('/features', authenticate, async (req, res) => {
+  try {
+    const { featureid, carid } = req.body;
+
+    const carFeatureRecord = await carFeature.findOne({ where: { featureid, carid } });
+    if (!carFeatureRecord) {
+      return res.status(404).json({ message: 'Feature not found for the car' });
+    }
+
+    const car = await Car.findOne({ where: { carid: carid, hostId: req.user.id } });
+    if (!car) {
+      return res.status(400).json({ message: 'Car is not available' });
+    }
+
+    await carFeatureRecord.destroy();
+
+    res.status(200).json({ message: 'Feature deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error deleting car feature' });
+  }
+});
 //Listing
 router.get('/listing', authenticate, async (req, res) => {
   const hostid = req.user.userid;
@@ -803,6 +838,17 @@ router.put('/listing', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Error updating listing' });
   }
 });
+
+router.get('/allfeatures',authenticate, async (req, res) => {
+  try {
+    const features = await Feature.findAll();
+    res.status(200).json(features);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching features', error });
+  }
+});
+
 router.put('/profile', authenticate, async (req, res) => {
   try {
     const hostId = req.user.id;
@@ -1039,6 +1085,10 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
     if (!carAdditional) {
       return res.status(404).json({ message: 'Car additional information not found' });
     }
+    const features = await carFeature.findAll({ where: { carid: carId } });
+    if (!carAdditional) {
+      return res.status(404).json({ message: 'Car additional information not found' });
+    }
 
     let carAdditionals = {
       carId: carAdditional.carid,
@@ -1090,13 +1140,15 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
     res.status(200).json({
       message: "Car Additional data",
       carAdditionals,
-      carImages
+      carImages,
+      features
     });
    } 
    else{
     res.status(200).json({
       message: "Car Additional data, no image found",
       carAdditionals,
+      features
     });
    }
   } catch (error) {

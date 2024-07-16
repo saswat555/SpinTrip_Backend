@@ -47,13 +47,18 @@ db.Support = require('./supportModel')(sequelize, DataTypes);
 db.SupportChat = require('./supportChatModel')(sequelize, DataTypes);
 db.Wishlist = require('./wishlistModel')(sequelize, DataTypes);
 db.Transaction = require('./TransactionModel')(sequelize, DataTypes);
+db.Device = require('./deviceModel')(sequelize, DataTypes);
+db.Feature = require('./featureModel')(sequelize, DataTypes);
+db.carFeature = require('./carFeaturesModel')(sequelize, DataTypes);
 const associateModels = () => {
-  const { User, Admin, Car, Host, UserAdditional, Booking, Listing, CarAdditional, Feedback, Support, SupportChat, Tax, Wishlist } = sequelize.models;
+  const { User, Admin, Car, Host, UserAdditional, Booking, Listing, CarAdditional, Feedback, Support, SupportChat, Tax, Wishlist, Device, Feature, carFeature  } = sequelize.models;
 
   Support.belongsTo(User, { foreignKey: 'userId' });
   SupportChat.belongsTo(Support, { foreignKey: 'supportId' });
   SupportChat.belongsTo(User, { foreignKey: 'userId' });
   SupportChat.belongsTo(Admin, { foreignKey: 'adminId' });
+  carFeature.belongsTo(Feature, { foreignKey: 'featureid' });
+  carFeature.belongsTo(Car, { foreignKey: 'carid' });
 
   User.hasMany(Support, { foreignKey: 'userId' });
   Support.hasMany(SupportChat, { foreignKey: 'supportId' });
