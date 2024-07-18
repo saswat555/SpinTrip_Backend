@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
 const { Sequelize, Op } = require('sequelize');
 const { fn, col, sum, count } = require('sequelize');
-const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand, Feedback, carFeature,Feature } = require('../Models');
+const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand, Feedback, carFeature, Feature } = require('../Models');
 const { and, TIME } = require('sequelize');
 const { sendOTP, generateOTP } = require('../Controller/hostController');
 const multer = require('multer');
@@ -23,16 +23,16 @@ const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fet
 const router = express.Router();
 const chatController = require('../Controller/chatController');
 const { createSupportTicket, addSupportMessage, viewSupportChats, viewUserSupportTickets } = require('../Controller/supportController');
-
+const csv = require('csv-parser');
 const carImageStorage = multerS3({
   s3: s3,
-  bucket: 'spintrip-images', 
-  contentType: multerS3.AUTO_CONTENT_TYPE, 
+  bucket: 'spintrip-images',
+  contentType: multerS3.AUTO_CONTENT_TYPE,
   key: function (req, file, cb) {
     const carId = req.body.carId;
     const imageNumber = file.fieldname.split('_')[1];
     const fileName = `carImage_${imageNumber}${path.extname(file.originalname)}`;
-    cb(null, `CarAdditional/${carId}/${fileName}`); 
+    cb(null, `CarAdditional/${carId}/${fileName}`);
   }
 });
 const uploadCarImages = multer({ storage: carImageStorage }).fields(
@@ -40,8 +40,8 @@ const uploadCarImages = multer({ storage: carImageStorage }).fields(
 );
 const profileImageStorage = multerS3({
   s3: s3,
-  bucket: 'spintrip-images', 
-  contentType: multerS3.AUTO_CONTENT_TYPE, 
+  bucket: 'spintrip-images',
+  contentType: multerS3.AUTO_CONTENT_TYPE,
   key: function (req, file, cb) {
     const userId = req.user.id;
     const fileName = `${file.fieldname}${path.extname(file.originalname)}`;
@@ -69,7 +69,7 @@ const pricing = async (car, carAdditional) => {
     let brand = await Brand.findOne({
       where: { carmodel: car.carmodel, type: car.type, brand: car.brand },
     });
-    
+
     if (brand) {
       brand_value = brand.brand_value;
       base_price = brand.base_price;
@@ -149,7 +149,7 @@ router.post('/login', authenticate, async (req, res) => {
 router.post('/verify-otp', async (req, res) => {
   const { phone, otp } = req.body;
   const user = await User.findOne({ where: { phone } })
-  if(!user) {
+  if (!user) {
     return res.status(401).json({ message: 'Invalid Phone' });
   }
   const fixed_otp = user.otp;
@@ -177,15 +177,15 @@ router.get('/get-brand', async (req, res) => {
     fs.createReadStream(csvFilePath)
       .pipe(csv({ headers: false }))
       .on('data', (row) => {
-        if(row[1]){
-        brand = {
-          brand_name: row[0], 
-          logo_path: process.env.BASE_URL + row[1]  
-        };
+        if (row[1]) {
+          brand = {
+            brand_name: row[0],
+            logo_path: process.env.BASE_URL + row[1]
+          };
         }
-        else{
-        brand = {
-            brand_name: row[0], 
+        else {
+          brand = {
+            brand_name: row[0],
             logo_path: null
           };
 
@@ -241,22 +241,22 @@ router.get('/profile', authenticate, async (req, res) => {
     if (!host) {
       return res.status(404).json({ message: 'Host not found' });
     }
-    const user = await User.findOne({where: {id: hostId}});
+    const user = await User.findOne({ where: { id: hostId } });
     const cars = await Car.findAll({ where: { hostId: host.id } })
     let additionalInfo = await UserAdditional.findByPk(hostId);
     console.log(additionalInfo);
     let profile = {
-          id: additionalInfo.id,
-          dlNumber: additionalInfo.Dlverification,
-          fullName: additionalInfo.FullName,
-          email: additionalInfo.Email,
-          aadharNumber: additionalInfo.AadharVfid,
-          address: additionalInfo.Address,
-          verificationStatus: additionalInfo.verification_status,
-          phone: user.phone,
-          profilePic: additionalInfo.profilepic
-        }
-      
+      id: additionalInfo.id,
+      dlNumber: additionalInfo.Dlverification,
+      fullName: additionalInfo.FullName,
+      email: additionalInfo.Email,
+      aadharNumber: additionalInfo.AadharVfid,
+      address: additionalInfo.Address,
+      verificationStatus: additionalInfo.verification_status,
+      phone: user.phone,
+      profilePic: additionalInfo.profilepic
+    }
+
 
     // You can include more fields as per your User model
     res.json({ hostDetails: host, cars, profile });
@@ -336,11 +336,12 @@ router.post('/car', authenticate, async (req, res) => {
       hostId: carhostid,
       timestamp: timeStamp
     })
-    await CarAdditional.create({ 
-      carid: car.carid,       
+    await CarAdditional.create({
+      carid: car.carid,
       latitude: latitude,
       longitude: longitude,
-      address: address });
+      address: address
+    });
     const carAdditional = await CarAdditional.findOne({
       where: {
         carid: car.carid,
@@ -603,20 +604,20 @@ router.post('/features', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'Feature not available' });
     }
     else {
-      const car = await Car.findOne({ where: { carid: carid , hostId: req.user.id } });
+      const car = await Car.findOne({ where: { carid: carid, hostId: req.user.id } });
       if (!car) {
-       return res.status(400).json({ message: 'Car is not available' });
+        return res.status(400).json({ message: 'Car is not available' });
       }
       const carfeature = await carFeature.findOne({ where: { featureid: featureid, carid: carid } });
       if (carfeature) {
         return res.status(400).json({ message: 'Car feature already added' });
-       }
+      }
       const updated_feature = await carFeature.create({
         featureid: featureid,
         carid: carid,
         price: price
       });
-      let response  = {
+      let response = {
         carid: updated_feature.carid,
         featureid: updated_feature.featureid,
         price: updated_feature.price,
@@ -687,30 +688,30 @@ router.get('/listing', authenticate, async (req, res) => {
         if (!car) {
           return;
         }
-        let carAdditional = await CarAdditional.findOne({ where: { carid: lstg.carid }});   
-        let  lk = {
-            id: lstg.id,
-            carId: lstg.carid,
-            hostId: lstg.hostid,
-            details: lstg.details,
-            startDate: lstg.start_date,
-            startTime: lstg.start_time,
-            endDate: lstg.end_date,
-            endTime: lstg.end_time,
-            pauseTimeStartDate: lstg.pausetime_start_date,
-            pauseTimeEndDate: lstg.pausetime_end_date,
-            pauseTimeStartTime: lstg.pausetime_start_time,
-            pauseTimeEndTime: lstg.pausetime_end_time,
-            bookingId: lstg.bookingId,
-            rcNumber: car.Rcnumber,
-            type: car.type,
-            carModel: car.carmodel,
-            carImage1: carAdditional.carimage1,
-            carImage2: carAdditional.carimage2,
-            carImage3: carAdditional.carimage3,
-            carImage4: carAdditional.carimage4,
-            carImage5: carAdditional.carimage5,
-          }
+        let carAdditional = await CarAdditional.findOne({ where: { carid: lstg.carid } });
+        let lk = {
+          id: lstg.id,
+          carId: lstg.carid,
+          hostId: lstg.hostid,
+          details: lstg.details,
+          startDate: lstg.start_date,
+          startTime: lstg.start_time,
+          endDate: lstg.end_date,
+          endTime: lstg.end_time,
+          pauseTimeStartDate: lstg.pausetime_start_date,
+          pauseTimeEndDate: lstg.pausetime_end_date,
+          pauseTimeStartTime: lstg.pausetime_start_time,
+          pauseTimeEndTime: lstg.pausetime_end_time,
+          bookingId: lstg.bookingId,
+          rcNumber: car.Rcnumber,
+          type: car.type,
+          carModel: car.carmodel,
+          carImage1: carAdditional.carimage1,
+          carImage2: carAdditional.carimage2,
+          carImage3: carAdditional.carimage3,
+          carImage4: carAdditional.carimage4,
+          carImage5: carAdditional.carimage5,
+        }
         return { ...lk };
       });
       const hostListings = await Promise.all(listings);
@@ -762,7 +763,49 @@ router.delete('/listing', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Error deleting listing' });
   }
 });
+router.get('/get-brand', async (req, res) => {
+  try {
+    const brands = [];
+    const csvFilePath = path.join(__dirname, '..', 'data', 'brands.csv');
 
+    // Check if the file exists
+    if (!fs.existsSync(csvFilePath)) {
+      console.log(`File not found: ${csvFilePath}`);
+      return res.status(404).json({ message: 'No brands found' });
+    }
+    console.log(`Reading file: ${csvFilePath}`);
+    let brand;
+    fs.createReadStream(csvFilePath)
+      .pipe(csv({ headers: false }))
+      .on('data', (row) => {
+        if (row[1]) {
+          brand = {
+            brand_name: row[0],
+            logo_path: process.env.BASE_URL + row[1]
+          };
+        }
+        else {
+          brand = {
+            brand_name: row[0],
+            logo_path: null
+          };
+
+        }
+        console.log(`Read row: ${JSON.stringify(brand)}`);
+        brands.push(brand);
+      })
+      .on('end', () => {
+        res.status(200).json({ brands });
+      })
+      .on('error', (error) => {
+        console.error(`Error reading file: ${error}`);
+        res.status(500).json({ message: 'Error reading CSV file', error });
+      });
+  } catch (error) {
+    console.error(`Error in try-catch: ${error}`);
+    res.status(500).json({ message: 'Error fetching brands', error });
+  }
+});
 router.post('/pricing', async (req, res) => {
   try {
     const { carId } = req.body;
@@ -839,7 +882,7 @@ router.put('/listing', authenticate, async (req, res) => {
   }
 });
 
-router.get('/allfeatures',authenticate, async (req, res) => {
+router.get('/allfeatures', authenticate, async (req, res) => {
   try {
     const features = await Feature.findAll();
     res.status(200).json(features);
@@ -937,31 +980,31 @@ router.get('/host-bookings', authenticate, async (req, res) => {
         }
         const carAdditional = await CarAdditional.findOne({ where: { carid: booking.carid } });
         let bk = {
-            bookingId: booking.Bookingid,
-            carId: booking.carid,
-            carModel: booking.Car.carmodel,
-            id: booking.id,
-            bookedBy: booking.UserAdditional ? booking.UserAdditional.FullName : null,
-            status: booking.status,
-            amount: booking.amount,
-            tdsAmount: booking.TDSAmount,
-            totalHostAmount: booking.totalHostAmount,
-            transactionId: booking.Transactionid,
-            startTripDate: booking.startTripDate,
-            endTripDate: booking.endTripDate,
-            startTripTime: booking.startTripTime,
-            endTripTime: booking.endTripTime,
-            carImage1: carAdditional.carimage1,
-            carImage2: carAdditional.carimage2,
-            carImage3: carAdditional.carimage3,
-            carImage4: carAdditional.carimage4,
-            carImage5: carAdditional.carimage5,
-            latitude: carAdditional.latitude,
-            longitude: carAdditional.longitude,
-            cancelDate: booking.cancelDate,
-            cancelReason: booking.cancelReason,
-            createdAt: booking.createdAt,
-          }
+          bookingId: booking.Bookingid,
+          carId: booking.carid,
+          carModel: booking.Car.carmodel,
+          id: booking.id,
+          bookedBy: booking.UserAdditional ? booking.UserAdditional.FullName : null,
+          status: booking.status,
+          amount: booking.amount,
+          tdsAmount: booking.TDSAmount,
+          totalHostAmount: booking.totalHostAmount,
+          transactionId: booking.Transactionid,
+          startTripDate: booking.startTripDate,
+          endTripDate: booking.endTripDate,
+          startTripTime: booking.startTripTime,
+          endTripTime: booking.endTripTime,
+          carImage1: carAdditional.carimage1,
+          carImage2: carAdditional.carimage2,
+          carImage3: carAdditional.carimage3,
+          carImage4: carAdditional.carimage4,
+          carImage5: carAdditional.carimage5,
+          latitude: carAdditional.latitude,
+          longitude: carAdditional.longitude,
+          cancelDate: booking.cancelDate,
+          cancelReason: booking.cancelReason,
+          createdAt: booking.createdAt,
+        }
         return { ...bk };
       });
       const hostBookings = await Promise.all(hostBooking);
@@ -1022,29 +1065,29 @@ router.post('/booking-request', authenticate, async (req, res) => {
     const booking = await Booking.findOne({
       where: {
         Bookingid: bk.bookingId,
-        status : 5,
+        status: 5,
       }
     });
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found or already processed' });
     }
-    if(bk.status == '1'){
-     await booking.update({
-      status: 1,
-    });
-    return res.status(201).json({ message: 'Booking confirmed by host' });
+    if (bk.status == '1') {
+      await booking.update({
+        status: 1,
+      });
+      return res.status(201).json({ message: 'Booking confirmed by host' });
     }
-    if(bk.status == '4'){
+    if (bk.status == '4') {
       const today = new Date();
       const cancelDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       await booking.update({
-       status: 4,
-       cancelDate: cancelDate,
-       cancelReason: bk.CancelReason
-     });
-     return res.status(201).json({ message: 'Booking cancelled by host' });
-     }
-     return res.status(404).json({ message: 'No Action performed' });
+        status: 4,
+        cancelDate: cancelDate,
+        cancelReason: bk.CancelReason
+      });
+      return res.status(201).json({ message: 'Booking cancelled by host' });
+    }
+    return res.status(404).json({ message: 'No Action performed' });
   }
   catch (error) {
     console.error(error);
@@ -1136,21 +1179,21 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
     if (carAdditional.carimage3) carImages.push(carAdditional.carimage3);
     if (carAdditional.carimage4) carImages.push(carAdditional.carimage4);
     if (carAdditional.carimage5) carImages.push(carAdditional.carimage5);
-    if(carImages){
-    res.status(200).json({
-      message: "Car Additional data",
-      carAdditionals,
-      carImages,
-      features
-    });
-   } 
-   else{
-    res.status(200).json({
-      message: "Car Additional data, no image found",
-      carAdditionals,
-      features
-    });
-   }
+    if (carImages) {
+      res.status(200).json({
+        message: "Car Additional data",
+        carAdditionals,
+        carImages,
+        features
+      });
+    }
+    else {
+      res.status(200).json({
+        message: "Car Additional data, no image found",
+        carAdditionals,
+        features
+      });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -1195,9 +1238,9 @@ router.post('/getCarReg', async (req, res) => {
         console.log(result);
         const payload = result; // the parsed XML structure
         const vehicle_json_str = payload["soap:Envelope"]["soap:Body"]["CheckIndiaResponse"]["CheckIndiaResult"]["vehicleJson"];
-        
+
         const vehicle_json = JSON.parse(vehicle_json_str);
-  
+
         const vehicle_data = payload["soap:Envelope"]["soap:Body"]["CheckIndiaResponse"]["CheckIndiaResult"]["vehicleData"];
         const final_json = {
           Description: vehicle_data.Description,
@@ -1206,7 +1249,7 @@ router.post('/getCarReg', async (req, res) => {
           CarModel: vehicle_data.CarModel,
           EngineSize: vehicle_data.EngineSize.CurrentTextValue
         };
-  
+
         console.log(JSON.stringify(final_json, null, 4));
         res.status(200).json(final_json);
       } catch (error) {

@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
       Sevenseater: DataTypes.BOOLEAN,
       Reversecamera: DataTypes.BOOLEAN,
       Transmission: DataTypes.BOOLEAN,
-      Airbags: DataTypes.INTEGER,
+      Airbags: DataTypes.BOOLEAN,
       FuelType: DataTypes.BOOLEAN,
       PetFriendly: DataTypes.BOOLEAN,
       PowerSteering: DataTypes.BOOLEAN,
