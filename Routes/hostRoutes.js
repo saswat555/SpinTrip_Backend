@@ -26,7 +26,7 @@ const { createSupportTicket, addSupportMessage, viewSupportChats, viewUserSuppor
 const csv = require('csv-parser');
 const carImageStorage = multerS3({
   s3: s3,
-  bucket: 'spintrip-images',
+  bucket: 'spintrip-bucket',
   contentType: multerS3.AUTO_CONTENT_TYPE,
   key: function (req, file, cb) {
     const carId = req.body.carId;
