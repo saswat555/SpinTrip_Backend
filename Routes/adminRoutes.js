@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
-const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, CarAdditional, Tax, Device, Feature } = require('../Models');
+const { User, Admin, UserAdditional, Booking, Host, Car, Brand, Pricing, Listing, CarAdditional, Tax, Device, Feature } = require('../Models');
 const path = require('path');
 const uuid = require('uuid');
 const { sendOTP, generateOTP, authAdmin, client } = require('../Controller/adminController');
@@ -149,6 +149,114 @@ router.get('/cars', authenticate, async (req, res) => {
 }  
 })
 
+router.get('/cars/:id', authenticate, async (req, res) => {
+  try {
+    const car = await Car.findByPk(req.params.id);
+    if (!car) {
+      return res.status(404).json({ message: 'Car not found' });
+    }
+    res.status(200).json({ car });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error fetching car', error });
+  }
+});
+
+router.put('/cars/:id', authenticate, async (req, res) => {
+  try {
+    const car = await Car.update(req.body, { where: { id: req.params.id } });
+    res.status(200).json({ message: 'Car updated', car });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error updating car', error });
+  }
+});
+
+router.delete('/cars/:id', authenticate, async (req, res) => {
+  try {
+    await Car.destroy({ where: { id: req.params.id } });
+    res.status(200).json({ message: 'Car deleted' });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error deleting car', error });
+  }
+});
+
+router.get('/users/:id', authenticate, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json({ user });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error fetching user', error });
+  }
+});
+
+router.put('/users/:id', authenticate, async (req, res) => {
+  try {
+    const user = await User.update(req.body, { where: { id: req.params.id } });
+    res.status(200).json({ message: 'User updated', user });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error updating user', error });
+  }
+});
+
+router.delete('/users/:id', authenticate, async (req, res) => {
+  try {
+    await User.destroy({ where: { id: req.params.id } });
+    res.status(200).json({ message: 'User deleted' });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error deleting user', error });
+  }
+});
+
+router.get('/listings', authenticate, async (req, res) => {
+  try {
+    const listings = await Listing.findAll();
+    res.status(200).json({ message: 'All available Listings', listings });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error fetching listings', error });
+  }
+});
+
+router.get('/listings/:id', authenticate, async (req, res) => {
+  try {
+    const listing = await Listing.findByPk(req.params.id);
+    if (!listing) {
+      return res.status(404).json({ message: 'Listing not found' });
+    }
+    res.status(200).json({ listing });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error fetching listing', error });
+  }
+});
+
+router.put('/listings/:id', authenticate, async (req, res) => {
+  try {
+    const listing = await Listing.update(req.body, { where: { id: req.params.id } });
+    res.status(200).json({ message: 'Listing updated', listing });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error updating listing', error });
+  }
+});
+
+router.delete('/listings/:id', authenticate, async (req, res) => {
+  try {
+    await Listing.destroy({ where: { id: req.params.id } });
+    res.status(200).json({ message: 'Listing deleted' });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error deleting listing', error });
+  }
+});
 //Get All Bookings
 router.get('/bookings', authenticate, async (req, res) => {
   try {  
@@ -166,6 +274,38 @@ router.get('/bookings', authenticate, async (req, res) => {
 }
 })
 
+router.get('/bookings/:id', authenticate, async (req, res) => {
+  try {
+    const booking = await Booking.findByPk(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+    res.status(200).json({ booking });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error fetching booking', error });
+  }
+});
+
+router.put('/bookings/:id', authenticate, async (req, res) => {
+  try {
+    const booking = await Booking.update(req.body, { where: { id: req.params.id } });
+    res.status(200).json({ message: 'Booking updated', booking });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error updating booking', error });
+  }
+});
+
+router.delete('/bookings/:id', authenticate, async (req, res) => {
+  try {
+    await Booking.destroy({ where: { id: req.params.id } });
+    res.status(200).json({ message: 'Booking deleted' });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: 'Error deleting booking', error });
+  }
+});
 //Get All Hosts
 router.get('/hosts', authenticate, async (req, res) => {
   try {  

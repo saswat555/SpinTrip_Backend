@@ -20,7 +20,7 @@ const csv = require('csv-parser');
 const router = express.Router();
 const ImageStorage = multerS3({
   s3: s3,
-  bucket: 'spintrip-images', 
+  bucket: 'spintrip-bucket', 
   contentType: multerS3.AUTO_CONTENT_TYPE, 
   key: function (req, file, cb) {
     const userId = req.user.id;
