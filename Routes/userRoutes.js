@@ -2096,6 +2096,35 @@ router.post('/rating', authenticate, async (req, res) => {
   }
 });
 
+router.get('/top-rating',authenticate , async (req, res) => {
+  try {
+    const topRatings = await Feedback.findAll({
+      where: {
+        rating: 5
+      }
+    });
+
+    if (!topRatings || topRatings.length === 0) {
+      return res.status(404).json({ message: 'No 5-star ratings found' });
+    }
+
+    const feedbackList = topRatings.map(feedback => ({
+      carId: feedback.carId,
+      userId: feedback.userId,
+      userName: feedback.userName,
+      hostId: feedback.hostId,
+      rating: feedback.rating,
+      comment: feedback.comment,
+      createdAt: feedback.createdAt
+    }));
+
+    res.status(200).json({ message: 'Top 5-star ratings', feedback: feedbackList });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 //Payment
 
 // Initiate Payment Route
