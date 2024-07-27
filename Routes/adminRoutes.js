@@ -13,28 +13,27 @@ const chatController = require('../Controller/chatController');
 const { viewSupportTickets, replyToSupportTicket, escalateSupportTicket, resolveSupportTicket, viewSupportChats } = require('../Controller/supportController');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const csv = require('csv-parser');
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '..', 'uploads', 'brand');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
+const multerS3 = require('multer-s3');
+const s3 = require('../s3Config');
+
+// Set up multer storage with S3
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: 'spintrip-bucket',
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, `brand/${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
+  })
 });
 
-const upload = multer({ storage: storage });
-
+// Initialize CSV writer
 const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
-
-// Initialize CSV writer
 const csvFilePath = path.join(dataDir, 'brands.csv');
 const csvWriter = createCsvWriter({
   path: csvFilePath,
@@ -44,7 +43,7 @@ const csvWriter = createCsvWriter({
   ],
   append: true // Append to the file instead of overwriting
 });
-  
+
   router.post('/login', async (req, res) => {
     try {
     const { phone } = req.body;
@@ -460,21 +459,19 @@ router.post('/new-brand', upload.single('carImage'), async (req, res) => {
     const { brand } = req.body;
     const carImage = req.file;
 
-    // Validate input
     if (!brand) {
       return res.status(400).json({ message: 'Brand is required' });
     }
 
     let imagePath;
     if (carImage) {
-      imagePath = `/uploads/brand/${carImage.filename}`;
+      imagePath = `https://spintrip-bucket.s3.amazonaws.com/${carImage.key}`;
     } else {
       imagePath = '';
     }
 
     let brands = [];
 
-    // Read existing brands from the CSV file
     if (fs.existsSync(csvFilePath)) {
       const csvContent = fs.readFileSync(csvFilePath, 'utf-8');
       brands = csvContent.split('\n')
@@ -485,17 +482,13 @@ router.post('/new-brand', upload.single('carImage'), async (req, res) => {
         });
     }
 
-    // Check if the brand already exists and update it, otherwise add a new brand
     const brandIndex = brands.findIndex(b => b.brand === brand);
     if (brandIndex > -1) {
-      // Update existing brand
       brands[brandIndex].imagePath = imagePath;
     } else {
-      // Add new brand
       brands.push({ brand, imagePath });
     }
 
-    // Write the updated list of brands back to the CSV file
     const csvLines = brands.map(b => `${b.brand},${b.imagePath}`).join('\n');
     fs.writeFileSync(csvFilePath, csvLines);
 

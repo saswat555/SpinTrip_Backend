@@ -180,7 +180,7 @@ router.get('/get-brand', async (req, res) => {
         if (row[1]) {
           brand = {
             brand_name: row[0],
-            logo_path: process.env.BASE_URL + row[1]
+            logo_path:  row[1]
           };
         }
         else {
@@ -781,7 +781,7 @@ router.get('/get-brand', async (req, res) => {
         if (row[1]) {
           brand = {
             brand_name: row[0],
-            logo_path: process.env.BASE_URL + row[1]
+            logo_path:  row[1]
           };
         }
         else {
