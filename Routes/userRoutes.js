@@ -357,7 +357,25 @@ router.get('/get-brand', async (req, res) => {
   }
 });
 
+router.post('/features', authenticate, async (req, res) => {
 
+  try {
+    const { carid } = req.body;
+      const car = await Car.findOne({ where: { carid: carid } });
+      if (!car) {
+        return res.status(400).json({ message: 'Car is not available' });
+      }
+      const carFeatures = await carFeature.findAll({ where: { carid }, include: [Feature] });
+      if (!carFeatures || carFeatures.length === 0) {
+        return res.status(400).json({ message: 'No Car Feature Available' });
+      }
+      res.status(201).json({ message: 'Feature with Price', carFeatures });
+    }
+    catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching car feature Details' });
+  }
+});
 
 //Get All Cars
 router.get('/cars', async (req, res) => {
