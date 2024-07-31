@@ -4,8 +4,9 @@ const uuid = require('uuid');
 const { authenticate, generateToken } = require('../Middleware/authMiddleware');
 const bcrypt = require('bcrypt');
 const { User, Car, Chat, UserAdditional, Listing, sequelize, Booking, Pricing, CarAdditional,
-       carFeature, Feedback, Host, Tax, Wishlist, Feature } = require('../Models');
+       carFeature, Feedback, Host, Tax, Wishlist, Feature, Blog } = require('../Models');
 const { sendOTP, generateOTP, razorpay } = require('../Controller/userController');
+const { getAllBlogs } = require('../Controller/blogController');
 const { initiatePayment, checkPaymentStatus } = require('../Controller/paymentController');
 const chatController = require('../Controller/chatController');
 const { createSupportTicket, addSupportMessage, viewSupportChats, viewUserSupportTickets } = require('../Controller/supportController');
@@ -2205,5 +2206,7 @@ router.post('/support/message', authenticate, addSupportMessage);
 router.post('/support/supportChat', authenticate, viewSupportChats);
 
 router.get('/support', authenticate, viewUserSupportTickets);
+
+router.get('/view-blog', authenticate, getAllBlogs );
 
 module.exports = router;

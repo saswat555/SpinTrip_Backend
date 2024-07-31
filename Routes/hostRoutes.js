@@ -6,9 +6,10 @@ const jwt = require('jsonwebtoken');
 const { authenticate } = require('../Middleware/authMiddleware');
 const { Sequelize, Op } = require('sequelize');
 const { fn, col, sum, count } = require('sequelize');
-const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand, Feedback, carFeature, Feature } = require('../Models');
+const { Host, Car, User, Listing, UserAdditional, Booking, CarAdditional, Pricing, Brand, Feedback, carFeature, Feature, Blog } = require('../Models');
 const { and, TIME } = require('sequelize');
 const { sendOTP, generateOTP } = require('../Controller/hostController');
+const { getAllBlogs } = require('../Controller/blogController');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
 const s3 = require('../s3Config');
@@ -1274,5 +1275,7 @@ router.post('/support/message', authenticate, addSupportMessage);
 router.post('/support/supportChat', authenticate, viewSupportChats);
 
 router.get('/support', authenticate, viewUserSupportTickets);
+
+router.get('/view-blog',authenticate, getAllBlogs );
 module.exports = router;
 

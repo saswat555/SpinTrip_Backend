@@ -11,7 +11,7 @@ const fs = require('fs');
 const router = express.Router();
 const chatController = require('../Controller/chatController');
 const { viewSupportTickets, replyToSupportTicket, escalateSupportTicket, resolveSupportTicket, viewSupportChats } = require('../Controller/supportController');
-const {createBlog} = require('../Controller/blogController')
+const {createBlog, updateBlog, deleteBlog} = require('../Controller/blogController')
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const csv = require('csv-parser');
 const multerS3 = require('multer-s3');
@@ -29,6 +29,17 @@ const upload = multer({
     }
   })
 });
+const blogImageStorage = multerS3({
+  s3: s3,
+  bucket: 'spintrip-bucket',
+  contentType: multerS3.AUTO_CONTENT_TYPE,
+  key: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const fileName = `blogImage_${uniqueSuffix}${path.extname(file.originalname)}`;
+    cb(null, `blog/${fileName}`);
+  }
+});
+const upload1 = multer({ storage: blogImageStorage });
 
 // Initialize CSV writer
 const dataDir = path.join(__dirname, '..', 'data');
@@ -723,6 +734,10 @@ router.post('/support/resolve', resolveSupportTicket);
 
 router.post('/support/supportChat', viewSupportChats);
 
-router.post('/createBlog',authenticate, upload.fields([{ name: 'blogImage1', maxCount: 1 },{ name: 'blogImage2', maxCount: 1 }]), createBlog);
+router.post('/createBlog', authenticate, upload1.fields([{ name: 'blogImage_1', maxCount: 1 },{ name: 'blogImage_2', maxCount: 1 }]), createBlog);
+
+router.post('/updateBlog', authenticate, upload1.fields([{ name: 'blogImage_1', maxCount: 1 },{ name: 'blogImage_2', maxCount: 1 }]), updateBlog);
+
+router.get('/deleteBlog/:id', authenticate, deleteBlog);
 
 module.exports = router;

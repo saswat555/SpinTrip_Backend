@@ -53,7 +53,8 @@ db.Device = require('./deviceModel')(sequelize, DataTypes);
 db.Feature = require('./featureModel')(sequelize, DataTypes);
 db.carFeature = require('./carFeaturesModel')(sequelize, DataTypes);
 const associateModels = () => {
-  const { User, Admin, Car, Host, UserAdditional, Booking, Listing, CarAdditional, Feedback, Support, SupportChat, Tax, Wishlist, Device, Feature, carFeature, Blog, BlogComment  } = sequelize.models;
+  const { User, Admin, Car, Host, UserAdditional, Booking, Listing, CarAdditional, 
+    Feedback, Support, SupportChat, Tax, Wishlist, Device, Feature, carFeature, Blog, BlogComment  } = sequelize.models;
 
   Support.belongsTo(User, { foreignKey: 'userId' });
   SupportChat.belongsTo(Support, { foreignKey: 'supportId' });
