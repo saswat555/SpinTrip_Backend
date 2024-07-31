@@ -11,6 +11,7 @@ const fs = require('fs');
 const router = express.Router();
 const chatController = require('../Controller/chatController');
 const { viewSupportTickets, replyToSupportTicket, escalateSupportTicket, resolveSupportTicket, viewSupportChats } = require('../Controller/supportController');
+const {createBlog} = require('../Controller/blogController')
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const csv = require('csv-parser');
 const multerS3 = require('multer-s3');
@@ -721,5 +722,7 @@ router.post('/support/escalate', escalateSupportTicket);
 router.post('/support/resolve', resolveSupportTicket);
 
 router.post('/support/supportChat', viewSupportChats);
+
+router.post('/createBlog',authenticate, upload.fields([{ name: 'blogImage1', maxCount: 1 },{ name: 'blogImage2', maxCount: 1 }]), createBlog);
 
 module.exports = router;
