@@ -1,23 +1,40 @@
-const { Blog,BlogComment } = require('../Models');
+const { Blog, BlogComment } = require('../Models');
 const uuid = require('uuid');
 const multerS3 = require('multer-s3');
 const s3 = require('../s3Config');
 const multer = require('multer');
+const path = require('path');
+
+const s3Config = multerS3({
+  s3: s3,
+  bucket: 'spintrip-bucket', // Replace with your actual bucket name
+  contentType: multerS3.AUTO_CONTENT_TYPE,
+  key: function (req, file, cb) {
+    const blogId = req.body.blogId ? req.body.blogId : uuid.v4();
+    const fileName = `${blogId}/${file.fieldname}${path.extname(file.originalname)}`;
+    cb(null, fileName);
+  }
+});
+
+const upload = multer({ storage: s3Config });
 
 const createBlog = async (req, res) => {
   try {
-    let blogId = uuid.v4();
-    const { blogName, blogAuthor, description,keywords } = req.body;
-    const carImage1 = req.files['blogImage_1'] ? req.files['blogImage_1'][0].location : null;
-    const carImage2 = req.files['blogImage_2'] ? req.files['blogImage_2'][0].location : null;
-    const blog = await Blog.create({ 
-    blogId:blogId, 
-    blogName:blogName, 
-    blogAuthor:blogAuthor, 
-    description:description, 
-    keywords:keywords, 
-    carImage1:carImage1,
-    carImage2:carImage2 });
+    const blogId = uuid.v4();
+    const { blogName, blogAuthor, description, keywords } = req.body;
+    const blogImage1 = req.files['blogImage_1'] ? req.files['blogImage_1'][0].location : null;
+    const blogImage2 = req.files['blogImage_2'] ? req.files['blogImage_2'][0].location : null;
+
+    const blog = await Blog.create({
+      blogId: blogId,
+      blogName: blogName,
+      blogAuthor: blogAuthor,
+      description: description,
+      keywords: keywords,
+      blogImage1: blogImage1,
+      blogImage2: blogImage2
+    });
+
     res.status(201).json(blog);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -50,8 +67,8 @@ const getBlogById = async (req, res) => {
 const updateBlog = async (req, res) => {
   try {
     const { id, blogName, blogAuthor, description, keywords } = req.body;
-    const carImage1 = req.files['blogImage_1'] ? req.files['blogImage_1'][0].location : null;
-    const carImage2 = req.files['blogImage_2'] ? req.files['blogImage_2'][0].location : null;
+    const blogImage1 = req.files['blogImage_1'] ? req.files['blogImage_1'][0].location : null;
+    const blogImage2 = req.files['blogImage_2'] ? req.files['blogImage_2'][0].location : null;
 
     const [updated] = await Blog.update(
       {
@@ -59,8 +76,8 @@ const updateBlog = async (req, res) => {
         blogAuthor: blogAuthor,
         description: description,
         keywords: keywords,
-        carImage1: carImage1,
-        carImage2: carImage2
+        blogImage1: blogImage1,
+        blogImage2: blogImage2
       },
       { where: { blogId: id } }
     );
@@ -90,4 +107,11 @@ const deleteBlog = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-module.exports = {createBlog, getAllBlogs, updateBlog, deleteBlog};
+
+module.exports = {
+  createBlog,
+  getAllBlogs,
+  getBlogById,
+  updateBlog,
+  deleteBlog
+};

@@ -2207,6 +2207,6 @@ router.post('/support/supportChat', authenticate, viewSupportChats);
 
 router.get('/support', authenticate, viewUserSupportTickets);
 
-router.get('/view-blog', authenticate, getAllBlogs );
+router.get('/view-blog', getAllBlogs );
 
 module.exports = router;
