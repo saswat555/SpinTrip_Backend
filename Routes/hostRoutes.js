@@ -1133,6 +1133,15 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
     if (!carAdditional) {
       return res.status(404).json({ message: 'Car additional information not found' });
     }
+    
+    const featureList = await Feature.findAll();
+    const featureMap = featureList.reduce((map, f) => (map[f.id] = f.featureName, map), {});
+    
+    const updatedFeatures = features.map(f => ({
+      ...f.dataValues,
+      featureName: featureMap[f.featureid]
+    }));    
+
 
     let carAdditionals = {
       carId: carAdditional.carid,
@@ -1185,14 +1194,14 @@ router.post('/getCarAdditional', authenticate, async (req, res) => {
         message: "Car Additional data",
         carAdditionals,
         carImages,
-        features
+        updatedFeatures
       });
     }
     else {
       res.status(200).json({
         message: "Car Additional data, no image found",
         carAdditionals,
-        features
+        updatedFeatures
       });
     }
   } catch (error) {

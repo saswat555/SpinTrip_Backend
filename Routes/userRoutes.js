@@ -1451,6 +1451,17 @@ router.post('/getCarAdditional', async (req, res) => {
       return res.status(404).json({ message: 'Car additional information not found' });
     }
     const features = await carFeature.findAll({ where: { carid: carId } });
+    if (!carAdditional) {
+      return res.status(404).json({ message: 'Car additional information not found' });
+    }
+    
+    const featureList = await Feature.findAll();
+    const featureMap = featureList.reduce((map, f) => (map[f.id] = f.featureName, map), {});
+    
+    const updatedFeatures = features.map(f => ({
+      ...f.dataValues,
+      featureName: featureMap[f.featureid]
+    }));        
     let carAdditionals = {
       carId: carAdditional.carid,
       horsePower: carAdditional.HorsePower,
@@ -1485,6 +1496,7 @@ router.post('/getCarAdditional', async (req, res) => {
       verificationStatus: carAdditional.verification_status,
       latitude: carAdditional.latitude,
       longitude: carAdditional.longitude,
+      registrationYear: car.Registrationyear
     }
     // Path to the car's folder in the uploads directory
     const carImages = [];
@@ -1498,14 +1510,14 @@ router.post('/getCarAdditional', async (req, res) => {
       message: "Car Additional data",
       carAdditionals,
       carImages,
-      features
+      updatedFeatures
     });
    } 
    else{
     res.status(200).json({
       message: "Car Additional data, no image found",
       carAdditionals,
-      features
+      updatedFeatures
     });
   }
   } catch (error) {
