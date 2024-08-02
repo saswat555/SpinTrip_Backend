@@ -115,79 +115,38 @@ router.get('/profile', authenticate, async (req, res) => {
 
     const additionalInfo = await UserAdditional.findByPk(userId);
 
-    // Check if a folder exists for the user in the uploads directory
-
-    const userFolder = path.join('./uploads', String(userId));
-    if (fs.existsSync(userFolder)) {
-      // List all files in the user's folder
-      const files = fs.readdirSync(userFolder);
-      if (files) {
-
-        // Filter and create URLs for Aadhar and DL files
-        const aadharFile = files.filter(file => file.includes('aadharFile')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
-        const dlFile = files.filter(file => file.includes('dlFile')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
-        const profilePic = files.filter(file => file.includes('profilePic')).map(file => `${process.env.BASE_URL}/uploads/${userId}/${file}`);
-        let profile = {
-          id: additionalInfo.id,
-          dlNumber: additionalInfo.Dlverification,
-          fullName: additionalInfo.FullName,
-          email: additionalInfo.Email,
-          aadharNumber: additionalInfo.AadharVfid,
-          address: additionalInfo.Address,
-          verificationStatus: additionalInfo.verification_status,
-          dl: dlFile,
-          aadhar: aadharFile,
-          profilePic: profilePic
-        }
-        res.json({
-          user: user,
-          profile,
-          aadharFile,
-          dlFile,
-          profilePic
-        });
-      }
-      else {
-        let profile = {
-          id: additionalInfo.id,
-          dlNumber: additionalInfo.Dlverification,
-          fullName: additionalInfo.FullName,
-          email: additionalInfo.Email,
-          aadharNumber: additionalInfo.AadharVfid,
-          address: additionalInfo.Address,
-          verificationStatus: additionalInfo.verification_status,
-          dl: 'null',
-          aadhar: 'null',
-          profilePic: 'null'
-        }
-        res.json({
-          phone: user.phone,
-          role: user.role,
-          profile,
-
-        });
-      }
-    }
-    else {
-      let profile = {
-        id: additionalInfo?.id || null,
-        dlNumber: additionalInfo?.Dlverification || null,
-        fullName: additionalInfo?.FullName || null,
-        email: additionalInfo?.Email || null,
-        aadharNumber: additionalInfo?.AadharVfid || null,
-        address: additionalInfo?.Address || null,
-        verificationStatus: additionalInfo?.verification_status || null,
-        dl: 'null',
-        aadhar: 'null',
-        profilePic: 'null'
-      };
-      res.json({
-        phone: user?.phone || null,
-        role: user?.role || null,
-        profile,
-      });
+    if (!additionalInfo) {
+      return res.status(404).json({ message: 'Additional user info not found' });
     }
 
+    // Construct the URLs for the files stored in S3
+    const aadharFile = additionalInfo.aadhar ? [additionalInfo.aadhar] : [];
+    const dlFile = additionalInfo.dl ? [additionalInfo.dl] : [];
+    const profilePic = additionalInfo.profilepic ? [additionalInfo.profilepic] : [];
+
+    let profile = {
+      id: additionalInfo.id,
+      dlNumber: additionalInfo.Dlverification,
+      fullName: additionalInfo.FullName,
+      email: additionalInfo.Email,
+      aadharNumber: additionalInfo.AadharVfid,
+      address: additionalInfo.Address,
+      verificationStatus: additionalInfo.verification_status,
+      dl: dlFile,
+      aadhar: aadharFile,
+      profilePic: profilePic
+    };
+
+    res.json({
+      user: {
+        id: user.id,
+        phone: user.phone,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      },
+      profile
+    });
 
   } catch (error) {
     console.error(error);
@@ -227,7 +186,11 @@ router.put('/profile', authenticate, async (req, res) => {
 });
 
 // Verify route with image resizing
-router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCount: 1 }, { name: 'dlFile', maxCount: 1 }, { name: 'profilePic', maxCount: 1 }]), async (req, res) => {
+router.put('/verify', authenticate, upload.fields([
+  { name: 'aadharFile', maxCount: 1 },
+  { name: 'dlFile', maxCount: 1 },
+  { name: 'profilePic', maxCount: 1 }
+]), async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findByPk(userId);
@@ -242,29 +205,19 @@ router.put('/verify', authenticate, upload.fields([{ name: 'aadharFile', maxCoun
       if (req.files['profilePic']) files.push(req.files['profilePic'][0]);
     }
 
-    const uploadPath = path.join(__dirname, '../uploads', userId.toString());
-    fs.mkdirSync(uploadPath, { recursive: true });
-
-    for (let file of files) {
-      const resizedImageBuffer = await resizeImage(file.buffer);
-      const filename = file.fieldname + path.extname(file.originalname);
-      const filePath = path.join(uploadPath, filename);
-      fs.writeFileSync(filePath, resizedImageBuffer);
-      file.destination = uploadPath; // Update file destination to store in DB
-    }
-
     const { dlFile, aadharFile, profilePic } = req.files;
 
     if (dlFile || aadharFile) {
       await UserAdditional.update({
-        dl: dlFile ? dlFile[0].destination : undefined,
-        aadhar: aadharFile ? aadharFile[0].destination : undefined,
+        dl: dlFile ? dlFile[0].location : undefined,
+        aadhar: aadharFile ? aadharFile[0].location : undefined,
         verification_status: 1
       }, { where: { id: userId } });
     }
+
     if (profilePic) {
       await UserAdditional.update({
-        profilepic: profilePic[0].destination,
+        profilepic: profilePic[0].location,
       }, { where: { id: userId } });
     }
 
@@ -2127,7 +2080,7 @@ router.post('/rating', authenticate, async (req, res) => {
   }
 });
 
-router.get('/top-rating',authenticate , async (req, res) => {
+router.get('/top-rating' , async (req, res) => {
   try {
     const topRatings = await Feedback.findAll({
       where: {
