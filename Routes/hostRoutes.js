@@ -13,7 +13,7 @@ const { getAllBlogs } = require('../Controller/blogController');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
 const s3 = require('../s3Config');
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const fs = require('fs');
 const path = require('path');
@@ -50,6 +50,20 @@ const profileImageStorage = multerS3({
     cb(null, filePath);
   }
 });
+
+async function deleteFromS3(key) {
+  try {
+    const params = {
+      Bucket: 'spintrip-bucket',
+      Key: key,
+    };
+
+    await s3.send(new DeleteObjectCommand(params));
+    console.log(`Successfully deleted ${key}`);
+  } catch (error) {
+    console.error(`Error deleting ${key}`, error);
+  }
+}
 async function resizeImage(filePath) {
   try {
     await sharp(filePath)
@@ -440,7 +454,6 @@ router.post('/createListing', authenticate, async (req, res) => {
 });
 
 router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => {
-
   try {
     const {
       carId,
@@ -473,124 +486,124 @@ router.put('/carAdditional', authenticate, uploadCarImages, async (req, res) => 
       address,
       additionalInfo
     } = req.body;
-    const car = await Car.findOne({ where: { carid: carId } })
+
+    const car = await Car.findOne({ where: { carid: carId } });
     if (!car) {
-      res.status(400).json({ message: 'Car not found' });
+      return res.status(400).json({ message: 'Car not found' });
     }
-    else {
 
-      let files = [];
-      for (let i = 1; i <= 5; i++) {
-        if (req.files[`image-${i}`]) {
-          files.push(req.files[`image${i}`][0]);
+    const updateData = {
+      HorsePower: horsePower,
+      AC: ac,
+      Musicsystem: musicSystem,
+      Autowindow: autoWindow,
+      Sunroof: sunRoof,
+      Touchscreen: touchScreen,
+      Sevenseater: sevenSeater,
+      Reversecamera: reverseCamera,
+      Transmission: transmission,
+      Airbags: airBags,
+      FuelType: fuelType,
+      PetFriendly: petFriendly,
+      PowerSteering: powerSteering,
+      ABS: abs,
+      tractionControl: tractionControl,
+      fullBootSpace: fullBootSpace,
+      KeylessEntry: keylessEntry,
+      airPurifier: airPurifier,
+      cruiseControl: cruiseControl,
+      voiceControl: voiceControl,
+      usbCharger: usbCharger,
+      bluetooth: bluetooth,
+      airFreshner: airFreshner,
+      ventelatedFrontSeat: ventelatedFrontSeat,
+      latitude: latitude,
+      longitude: longitude,
+      address: address,
+      Additionalinfo: additionalInfo,
+    };
+
+    const imageFields = {
+      carImage_1: 'carimage1',
+      carImage_2: 'carimage2',
+      carImage_3: 'carimage3',
+      carImage_4: 'carimage4',
+      carImage_5: 'carimage5'
+    };
+    
+    const carAdditional = await CarAdditional.findOne({ where: { carid: carId } });
+
+    for (const [requestField, dbField] of Object.entries(imageFields)) {
+      if (req.files[requestField]) {
+        updateData[dbField] = req.files[requestField][0].location;
+      } else if (req.body[requestField] == '') {
+        const imageKey = carAdditional[dbField];
+        console.log(imageKey);
+        if (imageKey) {
+          await deleteFromS3(imageKey);
+          updateData[dbField] = null;
         }
       }
-      const { carImage_1, carImage_2, carImage_3, carImage_4, carImage_5 } = req.files;
-      await CarAdditional.update({
-        HorsePower: horsePower,
-        AC: ac,
-        Musicsystem: musicSystem,
-        Autowindow: autoWindow,
-        Sunroof: sunRoof,
-        Touchscreen: touchScreen,
-        Sevenseater: sevenSeater,
-        Reversecamera: reverseCamera,
-        Transmission: transmission,
-        Airbags: airBags,
-        FuelType: fuelType,
-        PetFriendly: petFriendly,
-        PowerSteering: powerSteering,
-        ABS: abs,
-        tractionControl: tractionControl,
-        fullBootSpace: fullBootSpace,
-        KeylessEntry: keylessEntry,
-        airPurifier: airPurifier,
-        cruiseControl: cruiseControl,
-        voiceControl: voiceControl,
-        usbCharger: usbCharger,
-        bluetooth: bluetooth,
-        airFreshner: airFreshner,
-        ventelatedFrontSeat: ventelatedFrontSeat,
-        carimage1: carImage_1 ? carImage_1[0].location : null,
-        carimage2: carImage_2 ? carImage_2[0].location : null,
-        carimage3: carImage_3 ? carImage_3[0].location : null,
-        carimage4: carImage_4 ? carImage_4[0].location : null,
-        carimage5: carImage_5 ? carImage_5[0].location : null,
-        verification_status: 1,
-        latitude: latitude,
-        longitude: longitude,
-        address: address,
-        Additionalinfo: additionalInfo
-      },
-        { where: { carid: carId } });
-
-      const carAdditional = await CarAdditional.findOne({
-        where: {
-          carid: carId,
-        }
-      });
-      const costperhr = await pricing(car, carAdditional);
-      const Price = await Pricing.findOne({ where: { carid: carId } })
-      let price1;
-      if (Price) {
-        price1 = await Pricing.update(
-          { costperhr: costperhr },
-          {
-            where: {
-              carid: carId
-            }
-          }
-        );
-      }
-      else {
-        price1 = await Pricing.create({
-          costperhr,
-          carId,
-        });
-      }
-      let carAdditionals = {
-        carId: carAdditional.carid,
-        horsePower: carAdditional.HorsePower,
-        ac: carAdditional.AC,
-        musicSystem: carAdditional.Musicsystem,
-        autoWindow: carAdditional.Autowindow,
-        sunroof: carAdditional.Sunroof,
-        touchScreen: carAdditional.Touchscreen,
-        sevenSeater: carAdditional.Sevenseater,
-        reverseCamera: carAdditional.Reversecamera,
-        transmission: carAdditional.Transmission,
-        airBags: carAdditional.Airbags,
-        fuelType: carAdditional.FuelType,
-        petFriendly: carAdditional.PetFriendly,
-        powerSteering: carAdditional.PowerSteering,
-        abs: carAdditional.ABS,
-        tractionControl: carAdditional.tractionControl,
-        fullBootSpace: carAdditional.fullBootSpace,
-        keylessEntry: carAdditional.KeylessEntry,
-        airPurifier: carAdditional.airPurifier,
-        cruiseControl: carAdditional.cruiseControl,
-        voiceControl: carAdditional.voiceControl,
-        usbCharger: carAdditional.usbCharger,
-        bluetooth: carAdditional.bluetooth,
-        airFreshner: carAdditional.airFreshner,
-        ventelatedFrontSeat: carAdditional.ventelatedFrontSeat,
-        carImage1: carAdditional.carimage1,
-        carImage2: carAdditional.carimage2,
-        carImage3: carAdditional.carimage3,
-        carImage4: carAdditional.carimage4,
-        carImage5: carAdditional.carimage5,
-        latitude: carAdditional.latitude,
-        longitude: carAdditional.longitude,
-        address: carAdditional.address,
-        verificationStatus: carAdditional.verification_status,
-      }
-      res.status(201).json({ message: 'Car Additional added', carAdditionals });
     }
+
+    await CarAdditional.update(updateData, { where: { carid: carId } });
+
+    const updatedCarAdditional = await CarAdditional.findOne({
+      where: { carid: carId }
+    });
+
+    const costperhr = await pricing(car, updatedCarAdditional);
+    const priceEntry = await Pricing.findOne({ where: { carid: carId } });
+    if (priceEntry) {
+      await Pricing.update({ costperhr }, { where: { carid: carId } });
+    } else {
+      await Pricing.create({ costperhr, carId });
+    }
+
+    const carAdditionals = {
+      carId: updatedCarAdditional.carid,
+      horsePower: updatedCarAdditional.HorsePower,
+      ac: updatedCarAdditional.AC,
+      musicSystem: updatedCarAdditional.Musicsystem,
+      autoWindow: updatedCarAdditional.Autowindow,
+      sunroof: updatedCarAdditional.Sunroof,
+      touchScreen: updatedCarAdditional.Touchscreen,
+      sevenSeater: updatedCarAdditional.Sevenseater,
+      reverseCamera: updatedCarAdditional.Reversecamera,
+      transmission: updatedCarAdditional.Transmission,
+      airBags: updatedCarAdditional.Airbags,
+      fuelType: updatedCarAdditional.FuelType,
+      petFriendly: updatedCarAdditional.PetFriendly,
+      powerSteering: updatedCarAdditional.PowerSteering,
+      abs: updatedCarAdditional.ABS,
+      tractionControl: updatedCarAdditional.tractionControl,
+      fullBootSpace: updatedCarAdditional.fullBootSpace,
+      keylessEntry: updatedCarAdditional.KeylessEntry,
+      airPurifier: updatedCarAdditional.airPurifier,
+      cruiseControl: updatedCarAdditional.CruiseControl,
+      voiceControl: updatedCarAdditional.VoiceControl,
+      usbCharger: updatedCarAdditional.UsbCharger,
+      bluetooth: updatedCarAdditional.Bluetooth,
+      airFreshner: updatedCarAdditional.AirFreshner,
+      ventelatedFrontSeat: updatedCarAdditional.VentelatedFrontSeat,
+      carImage1: updatedCarAdditional.carimage1,
+      carImage2: updatedCarAdditional.carimage2,
+      carImage3: updatedCarAdditional.carimage3,
+      carImage4: updatedCarAdditional.carimage4,
+      carImage5: updatedCarAdditional.carimage5,
+      latitude: updatedCarAdditional.latitude,
+      longitude: updatedCarAdditional.longitude,
+      address: updatedCarAdditional.address,
+      verificationStatus: updatedCarAdditional.verification_status,
+    };
+
+    res.status(201).json({ message: 'Car Additional added', carAdditionals });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error Adding car Addtional Details' });
+    res.status(500).json({ message: 'Error Adding car Additional Details' });
   }
 });
+
 
 router.post('/features', authenticate, async (req, res) => {
 

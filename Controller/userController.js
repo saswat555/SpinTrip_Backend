@@ -7,8 +7,19 @@ const Razorpay = require('razorpay');
 
 
 const User = db.users;
-const sendOTP = (phone, otp) => {
+const sendOTP = async (phone, otp) => {
   console.log(`Sending OTP ${otp} to phone number ${phone}`);
+
+  const apiKey = '51a62bb0-5183-11ef-8b60-0200cd936042';
+  const url = `https://2factor.in/API/V1/${apiKey}/SMS/${phone}/${otp}/Spintrip`;
+
+  try {
+    const response = await axios.get(url);
+    console.log('OTP sent successfully:', response.data);
+    return response.data; 
+  } catch (error) {
+    console.error('Error sending OTP:', error);
+  }
 };
 const generateOTP = () => {
   const otp = Math.floor(1000 + Math.random() * 9000).toString();
