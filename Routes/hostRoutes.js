@@ -1060,10 +1060,16 @@ router.post('/rating', authenticate, async (req, res) => {
     const bookingCount = await Booking.count({
       where: {
         id: booking.id,
+        status: 3,
       }
     });
-    console.log(bookingCount);
-    let new_rating = (parseFloat(rating) + parseFloat(user.rating * (bookingCount - 1))) / (bookingCount);
+    let new_rating;
+    if(bookingCount == 1){
+      new_rating = (parseFloat(rating) + parseFloat(user.rating * (bookingCount - 1))) / (bookingCount);
+    }
+    else{
+      new_rating = parseFloat(rating);
+    }
     user.update({ rating: new_rating });
     res.status(201).json('Thank you for your response');
   }

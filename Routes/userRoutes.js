@@ -966,9 +966,9 @@ router.post('/booking', authenticate, async (req, res) => {
         id: userId,
       }
     });
-    // if (userAdd.verification_status != 2) {
-    //   return res.status(400).json({ message: 'Your DL and Aadhar is not Approved' });
-    // }
+    if (userAdd.verification_status != 2) {
+      return res.status(400).json({ message: 'Your DL and Aadhar is not Approved' });
+    }
     const listing = await Listing.findOne({
       where: {
         carid: carId,
@@ -2044,10 +2044,16 @@ router.post('/rating', authenticate, async (req, res) => {
     const bookingCount = await Booking.count({
       where: {
         carid: booking.carid,
+        status: 3,
       }
     });
-
-    let new_rating = (parseFloat(rating) + parseFloat(car.rating * (bookingCount - 1))) / bookingCount;
+    let new_rating;
+    if ( bookingCount == 1 ){
+      new_rating = (parseFloat(rating) + parseFloat(car.rating * (bookingCount - 1))) / bookingCount;
+    }
+    else{
+      new_rating = parseFloat(rating);
+    }
     car.update({ rating: new_rating });
     const car_ratings = await Car.sum('rating', {
       where: {
