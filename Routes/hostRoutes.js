@@ -983,6 +983,11 @@ router.get('/host-bookings', authenticate, async (req, res) => {
     });
     console.log(bookings);
     if (bookings) {
+      const featureList = await Feature.findAll();
+      const featureMap = featureList.reduce((map, feature) => {
+        map[feature.id] = feature.featureName;
+        return map;
+      }, {});
       const hostBooking = bookings.map(async (booking) => {
         const car = await Car.findOne({
           where: {
@@ -992,6 +997,10 @@ router.get('/host-bookings', authenticate, async (req, res) => {
         if (!car) {
           return;
         }
+        const featureDetails = (booking.features || []).map(featureId => ({
+          featureId,
+          featureName: featureMap[featureId] || 'Unknown Feature'
+        }));
         const carAdditional = await CarAdditional.findOne({ where: { carid: booking.carid } });
         let bk = {
           bookingId: booking.Bookingid,
@@ -1017,6 +1026,7 @@ router.get('/host-bookings', authenticate, async (req, res) => {
           longitude: carAdditional.longitude,
           cancelDate: booking.cancelDate,
           cancelReason: booking.cancelReason,
+          features: featureDetails,
           createdAt: booking.createdAt,
         }
         return { ...bk };

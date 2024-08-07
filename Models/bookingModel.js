@@ -19,6 +19,7 @@ module.exports = (sequelize, DataTypes) => {
     endTripTime: { type: DataTypes.TIME, allowNull: true },
     cancelDate: { type: DataTypes.DATE, allowNull: true },
     cancelReason: { type: DataTypes.TEXT, allowNull: true },
+    features: { type: DataTypes.JSON, allowNull: true } 
   });
 
 

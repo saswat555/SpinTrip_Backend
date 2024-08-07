@@ -1230,6 +1230,7 @@ router.post('/booking', authenticate, async (req, res) => {
         totalUserAmount: totalUserAmount,
         TDSAmount: tds,
         totalHostAmount: totalHostAmount,
+        features: features 
       });
 
       const bookings = {
@@ -1916,9 +1917,12 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
     let userId = req.user.userid;
     const booking = await Booking.findAll({ where: { id: userId } })
     if (booking) {
-      console.log(booking);
+      const featureList = await Feature.findAll();
+      const featureMap = featureList.reduce((map, feature) => {
+        map[feature.id] = feature.featureName;
+        return map;
+      }, {});
       const userBooking = booking.map(async (bookings) => {
-        const carFolder = path.join('./uploads/host/CarAdditional', bookings.carid);
         const car = await Car.findOne({
           where: {
             carid: bookings.carid,
@@ -1928,6 +1932,10 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
           return;
         }
         const carAdditional = await CarAdditional.findOne({ where: { carid: bookings.carid }});
+        const featureDetails = (bookings.features || []).map(featureId => ({
+          featureId,
+          featureName: featureMap[featureId] || 'Unknown Feature'
+        }));
         let bk;
           bk = {
             bookingId: bookings.Bookingid,
@@ -1953,6 +1961,7 @@ router.get('/User-Bookings', authenticate, async (req, res) => {
             longitude: carAdditional.longitude,
             cancelDate: bookings.cancelDate,
             cancelReason: bookings.cancelReason,
+            features: featureDetails,
             createdAt: bookings.createdAt,
 
           }
@@ -2179,5 +2188,7 @@ router.post('/support/supportChat', authenticate, viewSupportChats);
 router.get('/support', authenticate, viewUserSupportTickets);
 
 router.get('/view-blog', getAllBlogs );
+
+
 
 module.exports = router;
