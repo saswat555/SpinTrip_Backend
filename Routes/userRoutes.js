@@ -2049,10 +2049,10 @@ router.post('/rating', authenticate, async (req, res) => {
     });
     let new_rating;
     if ( bookingCount == 1 ){
-      new_rating = (parseFloat(rating) + parseFloat(car.rating * (bookingCount - 1))) / bookingCount;
+      new_rating = parseFloat(rating);     
     }
     else{
-      new_rating = parseFloat(rating);
+      new_rating = (parseFloat(rating) + parseFloat(car.rating * (bookingCount - 1))) / bookingCount;
     }
     car.update({ rating: new_rating });
     const car_ratings = await Car.sum('rating', {

@@ -9,9 +9,8 @@ const Razorpay = require('razorpay');
 const User = db.users;
 const sendOTP = async (phone, otp) => {
   console.log(`Sending OTP ${otp} to phone number ${phone}`);
-
-  const apiKey = '51a62bb0-5183-11ef-8b60-0200cd936042';
-  const url = `https://2factor.in/API/V1/${apiKey}/SMS/${phone}/${otp}/Spintrip`;
+  const url = `https://2factor.in/API/V1/${process.env.SMS_API_KEY}/SMS/${phone}//${otp}/`;
+  
 
   try {
     const response = await axios.get(url);

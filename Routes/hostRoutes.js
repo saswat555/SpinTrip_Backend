@@ -1064,11 +1064,11 @@ router.post('/rating', authenticate, async (req, res) => {
       }
     });
     let new_rating;
-    if(bookingCount == 1){
-      new_rating = (parseFloat(rating) + parseFloat(user.rating * (bookingCount - 1))) / (bookingCount);
+    if( bookingCount == 1 ){
+      new_rating = parseFloat(rating);     
     }
     else{
-      new_rating = parseFloat(rating);
+      new_rating = (parseFloat(rating) + parseFloat(user.rating * (bookingCount - 1))) / (bookingCount);
     }
     user.update({ rating: new_rating });
     res.status(201).json('Thank you for your response');
